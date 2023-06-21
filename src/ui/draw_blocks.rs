@@ -61,7 +61,6 @@ fn generate_block<'a>(
     gui_state
         .lock()
         .update_region_map(Region::Panel(panel), area);
-    let current_selected_panel = gui_state.lock().selected_panel;
     let mut title = match panel {
         SelectablePanel::Containers => {
             format!("{} {}", panel.title(), app_data.lock().container_title())
@@ -78,9 +77,6 @@ fn generate_block<'a>(
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .title(title);
-    if current_selected_panel == panel {
-        block = block.border_style(Style::default().fg(Color::LightCyan));
-    }
     block
 }
 
@@ -357,24 +353,65 @@ pub fn top_menu<B: Backend>(
     f.render_widget(left, split[0]);
 
     //actions
-    let mut actions_lines = vec![
+    let split_actions = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(25), Constraint::Min(25), Constraint::Min(25), Constraint::Percentage(100)].as_ref())
+        .split(split[1]);
+
+    // --- column 1
+    let mut actions_lines_0 = vec![
         Line::from(""),
     ];
-    match gui_state.lock().current_panel {
+    match gui_state.lock().get_current_nav() {
         NavPanel::Containers => {
-            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(s) start", Style::default().fg(Color::White))));
-            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))));
-            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(r) restart", Style::default().fg(Color::White))));
+            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(l) logs", Style::default().fg(Color::White))));
+            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(m) metrics", Style::default().fg(Color::White))));
+            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(c) docker compose", Style::default().fg(Color::White))));
         }
         NavPanel::Logs{container_name: _} => {
-            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(s) toggle scroll", Style::default().fg(Color::White))));
+            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(esc) back", Style::default().fg(Color::White))));
         }
     };
-    let actions = Paragraph::new(actions_lines)
+    let actions_0 = Paragraph::new(actions_lines_0)
         .style(Style::default().fg(Color::White))
         .block(Block::default().style(Style::default()).borders(Borders::NONE))
         .alignment(Alignment::Left);
-    f.render_widget(actions, split[1]);
+    f.render_widget(actions_0, split_actions[0]);
+
+    // --- column 2
+    let mut actions_lines_1 = vec![
+        Line::from(""),
+    ];
+    match gui_state.lock().get_current_nav() {
+        NavPanel::Containers => {
+            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(s) start", Style::default().fg(Color::White))));
+            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))));
+            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(r) restart", Style::default().fg(Color::White))));
+        }
+        NavPanel::Logs{container_name: _} => {
+        }
+    };
+    let actions_1 = Paragraph::new(actions_lines_1)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .alignment(Alignment::Left);
+    f.render_widget(actions_1, split_actions[1]);
+
+    // --- columns 3
+    let mut actions_lines_2 = vec![
+        Line::from(""),
+    ];
+    match gui_state.lock().get_current_nav() {
+        NavPanel::Containers => {
+        }
+        NavPanel::Logs{container_name: _} => {
+        }
+    };
+    let actions_2 = Paragraph::new(actions_lines_2)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .alignment(Alignment::Left);
+    f.render_widget(actions_2, split_actions[2]);
 
     // Right logo drawing
     let mut logo_lines = LOGO

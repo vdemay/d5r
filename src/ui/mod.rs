@@ -24,7 +24,7 @@ mod draw_blocks;
 mod gui_state;
 
 pub use self::color_match::*;
-pub use self::gui_state::{DeleteButton, GuiState, SelectablePanel, Status};
+pub use self::gui_state::{DeleteButton, GuiState, SelectablePanel, Status, NavPanel};
 use crate::{
     app_data::AppData, app_error::AppError, docker_data::DockerMessage,
     input_handler::InputMessages,
@@ -219,59 +219,34 @@ fn draw_frame<B: Backend>(
     let info_text = gui_state.lock().info_box_text.clone();
     let loading_icon = gui_state.lock().get_loading();
 
+    // Whole_layout :
+    //     top_menu
+    // ------------------
+    //      content
+    // ------------------
+    //    navigation
+
     let whole_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(8), Constraint::Percentage(100)].as_ref())
+        .constraints([Constraint::Min(8), Constraint::Percentage(100), Constraint::Min(3)].as_ref())
         .split(f.size());
 
-    // Split into 3, containers+controls, logs, then graphs
-    let upper_main = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Max(height.try_into().unwrap_or_default()),
-                Constraint::Percentage(50),
-            ]
-            .as_ref(),
-        )
-        .split(whole_layout[1]);
-
-    let top_split = if has_containers {
-        vec![Constraint::Percentage(90), Constraint::Percentage(10)]
-    } else {
-        vec![Constraint::Percentage(100)]
-    };
-    // Containers + docker commands
-    let top_panel = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(top_split.as_ref())
-        .split(upper_main[0]);
-
-    let lower_split = if has_containers {
-        vec![Constraint::Percentage(75), Constraint::Percentage(25)]
-    } else {
-        vec![Constraint::Percentage(100)]
-    };
-
-    // Split into 2, logs, and optional charts
-    let lower_main = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(lower_split.as_ref())
-        .split(upper_main[1]);
-
-    draw_blocks::containers(app_data, top_panel[0], f, gui_state, &column_widths);
-
-    if has_containers {
-        draw_blocks::commands(app_data, top_panel[1], f, gui_state);
-    }
-
-    draw_blocks::logs(app_data, lower_main[0], f, gui_state, &loading_icon);
-
+    // top menu
     draw_blocks::top_menu(
         f,
         whole_layout[0],
         gui_state,
     );
+
+    let current_nav = gui_state.lock().get_current_nav().clone();
+    // content
+    match current_nav {
+        NavPanel::Containers => draw_blocks::containers(app_data, whole_layout[1], f, gui_state, &column_widths),
+        NavPanel::Logs {container_name :_} => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
+    }
+
+    // nav - TODO
+
 
     if let Some(id) = delete_confirm {
         app_data.lock().get_container_name_by_id(&id).map_or_else(
@@ -284,11 +259,6 @@ fn draw_frame<B: Backend>(
                 draw_blocks::delete_confirm(f, gui_state, &name);
             },
         );
-    }
-
-    // only draw charts if there are containers
-    if has_containers {
-        draw_blocks::chart(f, lower_main[1], app_data);
     }
 
     if let Some(info) = info_text {

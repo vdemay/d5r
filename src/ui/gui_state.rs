@@ -240,10 +240,29 @@ pub struct GuiState {
     delete_container: Option<ContainerId>,
     pub info_box_text: Option<String>,
     pub selected_panel: SelectablePanel,
-    pub nav: Vec<NavPanel>,
-    pub current_panel: NavPanel,
+    pub nav: Vec<NavPanel>
 }
 impl GuiState {
+    /// nav
+    pub fn append_nav(&mut self, nav_panel : NavPanel){
+        self.nav.insert(self.nav.len(), nav_panel)
+    }
+
+    pub fn back_in_nav(&mut self) {
+        if (self.nav.len() > 1) {
+            self.nav.remove(self.nav.len() - 1);
+        }
+        return
+    }
+
+    pub fn get_current_nav(&mut self) -> &NavPanel {
+        if (self.nav.is_empty()) {
+            self.append_nav(NavPanel::Containers)
+        }
+        self.nav.last().unwrap()
+    }
+
+
     /// Clear panels hash map, so on resize can fix the sizes for mouse clicks
     pub fn clear_area_map(&mut self) {
         self.panel_map.clear();

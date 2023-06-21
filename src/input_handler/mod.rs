@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use std::thread::current;
 
 use crossterm::{
     event::{DisableMouseCapture, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind},
@@ -15,11 +16,12 @@ use tokio::{
 };
 
 mod message;
+
 use crate::{
     app_data::{AppData, DockerControls, Header},
     app_error::AppError,
     docker_data::DockerMessage,
-    ui::{DeleteButton, GuiState, SelectablePanel, Status, Ui},
+    ui::{DeleteButton, GuiState, SelectablePanel, Status, Ui, NavPanel},
 };
 pub use message::InputMessages;
 
@@ -194,6 +196,16 @@ impl InputHandler {
             }
         } else {
             match key_code {
+                KeyCode::Enter | KeyCode::Char('l') => {
+                    let current_panel = self.gui_state.lock().get_current_nav().clone();
+                    if (current_panel == NavPanel::Containers) {
+                        self.gui_state.lock().append_nav(NavPanel::Logs {
+                            container_name: self.app_data.lock().get_selected_container_name().unwrap_or_else(|| "N/A".into())
+                        })
+                    }
+                },
+                KeyCode::Esc => self.gui_state.lock().back_in_nav(),
+
                 KeyCode::Char('0') => self.app_data.lock().reset_sorted(),
                 KeyCode::Char('1') => self.sort(Header::State),
                 KeyCode::Char('2') => self.sort(Header::Status),
@@ -206,103 +218,31 @@ impl InputHandler {
                 KeyCode::Char('9') => self.sort(Header::Tx),
                 KeyCode::Char('h' | 'H') => self.gui_state.lock().status_push(Status::Help),
                 KeyCode::Char('m' | 'M') => self.m_key(),
-                KeyCode::Tab => {
-                    // Skip control panel if no containers, could be refactored
-                    let has_containers = self.app_data.lock().get_container_len() == 0;
-                    let is_containers =
-                        self.gui_state.lock().selected_panel == SelectablePanel::Containers;
-                    let count = if has_containers && is_containers {
-                        2
-                    } else {
-                        1
-                    };
-                    for _ in 0..count {
-                        self.gui_state.lock().next_panel();
-                    }
-                }
-                KeyCode::BackTab => {
-                    // Skip control panel if no containers, could be refactored
-                    let has_containers = self.app_data.lock().get_container_len() == 0;
-                    let is_containers =
-                        self.gui_state.lock().selected_panel == SelectablePanel::Logs;
-                    let count = if has_containers && is_containers {
-                        2
-                    } else {
-                        1
-                    };
-                    for _ in 0..count {
-                        self.gui_state.lock().previous_panel();
-                    }
-                }
+
                 KeyCode::Home => {
                     let mut locked_data = self.app_data.lock();
-                    match self.gui_state.lock().selected_panel {
-                        SelectablePanel::Containers => locked_data.containers_start(),
-                        SelectablePanel::Logs => locked_data.log_start(),
-                        SelectablePanel::Commands => locked_data.docker_command_start(),
+                    match self.gui_state.lock().get_current_nav() {
+                        NavPanel::Containers => locked_data.containers_start(),
+                        NavPanel::Logs { container_name: _ } => locked_data.log_start(),
                     }
                 }
                 KeyCode::End => {
                     let mut locked_data = self.app_data.lock();
-                    match self.gui_state.lock().selected_panel {
-                        SelectablePanel::Containers => locked_data.containers_end(),
-                        SelectablePanel::Logs => locked_data.log_end(),
-                        SelectablePanel::Commands => locked_data.docker_command_end(),
+                    match self.gui_state.lock().get_current_nav() {
+                        NavPanel::Containers => locked_data.containers_end(),
+                        NavPanel::Logs { container_name: _ } => locked_data.log_end(),
                     }
                 }
-                KeyCode::Up | KeyCode::Char('k' | 'K') => self.previous(),
+                KeyCode::Up => self.previous(),
                 KeyCode::PageUp => {
                     for _ in 0..=6 {
                         self.previous();
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j' | 'J') => self.next(),
+                KeyCode::Down => self.next(),
                 KeyCode::PageDown => {
                     for _ in 0..=6 {
                         self.next();
-                    }
-                }
-                KeyCode::Enter => {
-                    // This isn't great, just means you can't send docker commands before full initialization of the program
-                    let panel = self.gui_state.lock().selected_panel;
-                    if panel == SelectablePanel::Commands {
-                        let option_command = self.app_data.lock().selected_docker_command();
-
-                        if let Some(command) = option_command {
-                            let option_id = self.app_data.lock().get_selected_container_id();
-                            // Poor way of disallowing commands to be sent to a containerised okxer
-                            if self.app_data.lock().is_oxker() {
-                                return;
-                            };
-                            if let Some(id) = option_id {
-                                match command {
-                                    DockerControls::Delete => self
-                                        .docker_sender
-                                        .send(DockerMessage::ConfirmDelete(id))
-                                        .await
-                                        .ok(),
-                                    DockerControls::Pause => {
-                                        self.docker_sender.send(DockerMessage::Pause(id)).await.ok()
-                                    }
-                                    DockerControls::Unpause => self
-                                        .docker_sender
-                                        .send(DockerMessage::Unpause(id))
-                                        .await
-                                        .ok(),
-                                    DockerControls::Start => {
-                                        self.docker_sender.send(DockerMessage::Start(id)).await.ok()
-                                    }
-                                    DockerControls::Stop => {
-                                        self.docker_sender.send(DockerMessage::Stop(id)).await.ok()
-                                    }
-                                    DockerControls::Restart => self
-                                        .docker_sender
-                                        .send(DockerMessage::Restart(id))
-                                        .await
-                                        .ok(),
-                                };
-                            }
-                        }
                     }
                 }
                 _ => (),
@@ -358,20 +298,18 @@ impl InputHandler {
     /// Change state to next, depending which panel is currently in focus
     fn next(&mut self) {
         let mut locked_data = self.app_data.lock();
-        match self.gui_state.lock().selected_panel {
-            SelectablePanel::Containers => locked_data.containers_next(),
-            SelectablePanel::Logs => locked_data.log_next(),
-            SelectablePanel::Commands => locked_data.docker_command_next(),
+        match self.gui_state.lock().get_current_nav() {
+            NavPanel::Containers => locked_data.containers_next(),
+            NavPanel::Logs {container_name: _}=> locked_data.log_next(),
         };
     }
 
     /// Change state to previous, depending which panel is currently in focus
     fn previous(&mut self) {
         let mut locked_data = self.app_data.lock();
-        match self.gui_state.lock().selected_panel {
-            SelectablePanel::Containers => locked_data.containers_previous(),
-            SelectablePanel::Logs => locked_data.log_previous(),
-            SelectablePanel::Commands => locked_data.docker_command_previous(),
+        match self.gui_state.lock().get_current_nav() {
+            NavPanel::Containers => locked_data.containers_previous(),
+            NavPanel::Logs {container_name:_}=> locked_data.log_previous(),
         }
     }
 }

@@ -472,6 +472,10 @@ impl AppData {
         self.get_selected_container().map(|i| i.id.clone())
     }
 
+    pub fn get_selected_container_name(&self) -> Option<String> {
+        self.get_selected_container().map(|i| i.name.clone())
+    }
+
     /// Update container mem, cpu, & network stats, in single function so only need to call .lock() once
     /// Will also, if a sort is set, sort the containers
     pub fn update_stats(
