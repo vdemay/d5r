@@ -6,64 +6,25 @@ use std::{
 use std::borrow::Cow;
 use uuid::Uuid;
 
-use crate::app_data::{ContainerId, Header};
-
-#[derive(Debug, Default, Clone, Copy, Eq, Hash, PartialEq)]
-pub enum SelectablePanel {
-    #[default]
-    Containers,
-    Commands,
-    Logs,
-}
-
-impl SelectablePanel {
-    pub const fn title(self) -> &'static str {
-        match self {
-            Self::Containers => "Containers",
-            Self::Logs => "Logs",
-            Self::Commands => "",
-        }
-    }
-    pub const fn next(self) -> Self {
-        match self {
-            Self::Containers => Self::Commands,
-            Self::Commands => Self::Logs,
-            Self::Logs => Self::Containers,
-        }
-    }
-    pub const fn prev(self) -> Self {
-        match self {
-            Self::Containers => Self::Logs,
-            Self::Commands => Self::Containers,
-            Self::Logs => Self::Commands,
-        }
-    }
-}
+use crate::app_data::{ContainerId};
 
 
 #[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
 pub enum NavPanel {
     #[default]
     Containers,
-    Logs {
-        container_name: String
-    },
+    Logs ,
+    Metrics
 }
 
 impl NavPanel {
     pub fn title(&self) -> Cow<'static, str> {
         match self {
             Self::Containers => "Containers".into(),
-            Self::Logs{container_name} => format!("{container_name} Logs").into()
+            Self::Logs =>"Logs".into(),
+            Self::Metrics => "Metrics".into()
         }
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum Region {
-    Panel(SelectablePanel),
-    Header(Header),
-    Delete(DeleteButton),
 }
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
@@ -231,15 +192,12 @@ pub enum Status {
 /// Global gui_state, stored in an Arc<Mutex>
 #[derive(Debug, Default, Clone)]
 pub struct GuiState {
-    heading_map: HashMap<Header, Rect>,
     is_loading: HashSet<Uuid>,
     loading_icon: Loading,
-    panel_map: HashMap<SelectablePanel, Rect>,
     delete_map: HashMap<DeleteButton, Rect>,
     status: HashSet<Status>,
     delete_container: Option<ContainerId>,
     pub info_box_text: Option<String>,
-    pub selected_panel: SelectablePanel,
     pub nav: Vec<NavPanel>
 }
 impl GuiState {
@@ -249,37 +207,19 @@ impl GuiState {
     }
 
     pub fn back_in_nav(&mut self) {
-        if (self.nav.len() > 1) {
+        if self.nav.len() > 1 {
             self.nav.remove(self.nav.len() - 1);
         }
         return
     }
 
     pub fn get_current_nav(&mut self) -> &NavPanel {
-        if (self.nav.is_empty()) {
+        if self.nav.is_empty() {
             self.append_nav(NavPanel::Containers)
         }
         self.nav.last().unwrap()
     }
 
-
-    /// Clear panels hash map, so on resize can fix the sizes for mouse clicks
-    pub fn clear_area_map(&mut self) {
-        self.panel_map.clear();
-    }
-
-    /// Check if a given Rect (a clicked area of 1x1), interacts with any known panels
-    pub fn panel_intersect(&mut self, rect: Rect) {
-        if let Some(data) = self
-            .panel_map
-            .iter()
-            .filter(|i| i.1.intersects(rect))
-            .collect::<Vec<_>>()
-            .get(0)
-        {
-            self.selected_panel = *data.0;
-        }
-    }
 
     /// Check if a given Rect (a clicked area of 1x1), interacts with any known delete button
     pub fn button_intersect(&mut self, rect: Rect) -> Option<DeleteButton> {
@@ -291,36 +231,6 @@ impl GuiState {
             .map(|data| *data.0)
     }
 
-    /// Check if a given Rect (a clicked area of 1x1), interacts with any known panels
-    pub fn header_intersect(&mut self, rect: Rect) -> Option<Header> {
-        self.heading_map
-            .iter()
-            .filter(|i| i.1.intersects(rect))
-            .collect::<Vec<_>>()
-            .get(0)
-            .map(|data| *data.0)
-    }
-
-    /// Insert, or updates header area panel into heading_map
-    pub fn update_region_map(&mut self, region: Region, area: Rect) {
-        match region {
-            Region::Header(header) => self
-                .heading_map
-                .entry(header)
-                .and_modify(|w| *w = area)
-                .or_insert(area),
-            Region::Panel(panel) => self
-                .panel_map
-                .entry(panel)
-                .and_modify(|w| *w = area)
-                .or_insert(area),
-            Region::Delete(button) => self
-                .delete_map
-                .entry(button)
-                .and_modify(|w| *w = area)
-                .or_insert(area),
-        };
-    }
 
     /// Check if an ContainerId is set in the delete_container field
     pub fn get_delete_container(&self) -> Option<ContainerId> {
@@ -358,15 +268,6 @@ impl GuiState {
         self.status.insert(status);
     }
 
-    /// Change to next selectable panel
-    pub fn next_panel(&mut self) {
-        self.selected_panel = self.selected_panel.next();
-    }
-
-    /// Change to previous selectable panel
-    pub fn previous_panel(&mut self) {
-        self.selected_panel = self.selected_panel.prev();
-    }
 
     /// Insert a new loading_uuid into HashSet, and advance the animation by one frame
     pub fn next_loading(&mut self, uuid: Uuid) {

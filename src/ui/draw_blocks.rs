@@ -13,9 +13,7 @@ use ratatui::{
 };
 use std::default::Default;
 use std::{fmt::Display, sync::Arc};
-use tracing::Instrument;
 
-use crate::app_data::{Header, SortedOrder};
 use crate::ui::Status;
 use crate::{
     app_data::{AppData, ByteStats, Columns, CpuStats, State, Stats},
@@ -23,8 +21,8 @@ use crate::{
 };
 use crate::ui::gui_state::NavPanel;
 
-use super::gui_state::{BoxLocation, DeleteButton, Region};
-use super::{GuiState, SelectablePanel};
+use super::gui_state::{BoxLocation};
+use super::{GuiState};
 
 const LOGO: &str = r#"    .___.________
   __| _/|   ____/______
@@ -55,20 +53,17 @@ fn max_line_width(text: &str) -> usize {
 fn generate_block<'a>(
     app_data: &Arc<Mutex<AppData>>,
     area: Rect,
-    gui_state: &Arc<Mutex<GuiState>>,
-    panel: SelectablePanel,
+    gui_state: &Arc<Mutex<GuiState>>
 ) -> Block<'a> {
-    gui_state
-        .lock()
-        .update_region_map(Region::Panel(panel), area);
-    let mut title = match panel {
-        SelectablePanel::Containers => {
-            format!("{} {}", panel.title(), app_data.lock().container_title())
+    let nav_panel = gui_state.lock().get_current_nav().clone();
+    let mut title = match nav_panel {
+        NavPanel::Containers => {
+            format!("{} {}", nav_panel.title(), app_data.lock().container_title())
         }
-        SelectablePanel::Logs => {
-            format!("{} {}", panel.title(), app_data.lock().get_log_title())
+        NavPanel::Logs => {
+            format!("{} {}", nav_panel.title(), app_data.lock().get_log_title())
         }
-        SelectablePanel::Commands => String::new(),
+        _ => String::new(),
     };
     if !title.is_empty() {
         title = format!(" {title} ");
@@ -80,40 +75,6 @@ fn generate_block<'a>(
     block
 }
 
-/// Draw the command panel
-pub fn commands<B: Backend>(
-    app_data: &Arc<Mutex<AppData>>,
-    area: Rect,
-    f: &mut Frame<'_, B>,
-    gui_state: &Arc<Mutex<GuiState>>,
-) {
-    let block = || generate_block(app_data, area, gui_state, SelectablePanel::Commands);
-    let items = app_data.lock().get_control_items().map_or(vec![], |i| {
-        i.iter()
-            .map(|c| {
-                let lines = Line::from(vec![Span::styled(
-                    c.to_string(),
-                    Style::default().fg(c.get_color()),
-                )]);
-                ListItem::new(lines)
-            })
-            .collect::<Vec<_>>()
-    });
-
-    let items = List::new(items)
-        .block(block())
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-        .highlight_symbol(ARROW);
-
-    if let Some(i) = app_data.lock().get_control_state() {
-        f.render_stateful_widget(items, area, i);
-    } else {
-        let paragraph = Paragraph::new("")
-            .block(block())
-            .alignment(Alignment::Center);
-        f.render_widget(paragraph, area);
-    }
-}
 
 /// Draw the containers panel
 pub fn containers<B: Backend>(
@@ -123,7 +84,7 @@ pub fn containers<B: Backend>(
     gui_state: &Arc<Mutex<GuiState>>,
     widths: &Columns,
 ) {
-    let block = generate_block(app_data, area, gui_state, SelectablePanel::Containers);
+    let block = generate_block(app_data, area, gui_state);
 
     let items = app_data
         .lock()
@@ -222,7 +183,7 @@ pub fn logs<B: Backend>(
     gui_state: &Arc<Mutex<GuiState>>,
     loading_icon: &str,
 ) {
-    let block = || generate_block(app_data, area, gui_state, SelectablePanel::Logs);
+    let block = || generate_block(app_data, area, gui_state);
     if gui_state.lock().status_contains(&[Status::Init]) {
         let paragraph = Paragraph::new(format!("parsing logs {loading_icon}"))
             .style(Style::default())
@@ -368,7 +329,7 @@ pub fn top_menu<B: Backend>(
             actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(m) metrics", Style::default().fg(Color::White))));
             actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(c) docker compose", Style::default().fg(Color::White))));
         }
-        NavPanel::Logs{container_name: _} => {
+        NavPanel::Logs | NavPanel::Metrics => {
             actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(esc) back", Style::default().fg(Color::White))));
         }
     };
@@ -388,8 +349,7 @@ pub fn top_menu<B: Backend>(
             actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))));
             actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(r) restart", Style::default().fg(Color::White))));
         }
-        NavPanel::Logs{container_name: _} => {
-        }
+        _ => { }
     };
     let actions_1 = Paragraph::new(actions_lines_1)
         .style(Style::default().fg(Color::White))
@@ -402,10 +362,7 @@ pub fn top_menu<B: Backend>(
         Line::from(""),
     ];
     match gui_state.lock().get_current_nav() {
-        NavPanel::Containers => {
-        }
-        NavPanel::Logs{container_name: _} => {
-        }
+        _ => {}
     };
     let actions_2 = Paragraph::new(actions_lines_2)
         .style(Style::default().fg(Color::White))
@@ -425,157 +382,6 @@ pub fn top_menu<B: Backend>(
     f.render_widget(logo, split[2]);
 }
 
-/// Draw heading bar at top of program, always visible
-/// TODO Should separate into loading icon/headers/help functions
-#[allow(clippy::too_many_lines)]
-pub fn heading_bar<B: Backend>(
-    area: Rect,
-    columns: &Columns,
-    f: &mut Frame<'_, B>,
-    has_containers: bool,
-    loading_icon: &str,
-    sorted_by: Option<(Header, SortedOrder)>,
-    gui_state: &Arc<Mutex<GuiState>>,
-) {
-    let block = |fg: Color| Block::default().style(Style::default().bg(Color::Magenta).fg(fg));
-    let help_visible = gui_state.lock().status_contains(&[Status::Help]);
-
-    f.render_widget(block(Color::Black), area);
-
-    // Generate a block for the header, if the header is currently being used to sort a column, then highlight it white
-    let header_block = |x: &Header| {
-        let mut color = Color::Black;
-        let mut suffix = "";
-        let mut suffix_margin = 0;
-        if let Some((a, b)) = sorted_by.as_ref() {
-            if x == a {
-                match b {
-                    SortedOrder::Asc => suffix = " ⌃",
-                    SortedOrder::Desc => suffix = " ⌄",
-                }
-                suffix_margin = 2;
-                color = Color::White;
-            };
-        };
-        (
-            Block::default().style(Style::default().bg(Color::Magenta).fg(color)),
-            suffix,
-            suffix_margin,
-        )
-    };
-
-    // Generate block for the headers, state and status has a specific layout, others all equal
-    // width is dependant on it that column is selected to sort - or not
-    let gen_header = |header: &Header, width: usize| {
-        let block = header_block(header);
-        let text = match header {
-            Header::State => format!(
-                "{:>width$}{ic}",
-                header,
-                ic = block.1,
-                width = width - block.2,
-            ),
-            Header::Status => format!(
-                "{}  {:>width$}{ic}",
-                MARGIN,
-                header,
-                ic = block.1,
-                width = width - block.2
-            ),
-            _ => format!(
-                "{}{:>width$}{ic}",
-                MARGIN,
-                header,
-                ic = block.1,
-                width = width - block.2
-            ),
-        };
-        let count = u16::try_from(text.chars().count()).unwrap_or_default();
-        let status = Paragraph::new(text)
-            .block(block.0)
-            .alignment(Alignment::Left);
-        (status, count)
-    };
-
-    // Meta data to iterate over to create blocks with correct widths
-    let header_meta = [
-        (Header::State, columns.state.1),
-        (Header::Status, columns.status.1),
-        (Header::Cpu, columns.cpu.1),
-        (Header::Memory, columns.mem.1 + columns.mem.2 + 3),
-        (Header::Id, columns.id.1),
-        (Header::Name, columns.name.1),
-        (Header::Image, columns.image.1),
-        (Header::Rx, columns.net_rx.1),
-        (Header::Tx, columns.net_tx.1),
-    ];
-
-    let header_data = header_meta
-        .iter()
-        .map(|i| {
-            let header_block = gen_header(&i.0, i.1.into());
-            (header_block.0, i.0, Constraint::Max(header_block.1))
-        })
-        .collect::<Vec<_>>();
-
-    let suffix = if help_visible { "exit" } else { "show" };
-    let info_text = format!("( h ) {suffix} help {MARGIN}",);
-    let info_width = info_text.chars().count();
-
-    let column_width = usize::from(area.width).saturating_sub(info_width);
-    let column_width = if column_width > 0 { column_width } else { 1 };
-    let splits = if has_containers {
-        vec![
-            Constraint::Min(2),
-            Constraint::Min(column_width.try_into().unwrap_or_default()),
-            Constraint::Min(info_width.try_into().unwrap_or_default()),
-        ]
-    } else {
-        vec![Constraint::Percentage(100)]
-    };
-
-    let split_bar = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(splits.as_ref())
-        .split(area);
-    if has_containers {
-        // Draw loading icon, or not, and a prefix with a single space
-        let loading_icon = format!("{loading_icon:>2}");
-        let loading_paragraph = Paragraph::new(loading_icon)
-            .block(block(Color::White))
-            .alignment(Alignment::Center);
-        f.render_widget(loading_paragraph, split_bar[0]);
-
-        let container_splits = header_data.iter().map(|i| i.2).collect::<Vec<_>>();
-        let headers_section = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(container_splits.as_ref())
-            .split(split_bar[1]);
-
-        // draw the actual header blocks
-        for (index, (paragraph, header, _)) in header_data.into_iter().enumerate() {
-            let rect = headers_section[index];
-            gui_state
-                .lock()
-                .update_region_map(Region::Header(header), rect);
-            f.render_widget(paragraph, rect);
-        }
-    }
-
-    // show/hide help
-    let color = if help_visible {
-        Color::Black
-    } else {
-        Color::White
-    };
-    let help_paragraph = Paragraph::new(info_text)
-        .block(block(color))
-        .alignment(Alignment::Right);
-
-    // If no containers, don't display the headers, could maybe do this first?
-    let help_index = if has_containers { 2 } else { 0 };
-    f.render_widget(help_paragraph, split_bar[help_index]);
-}
 
 /// Help popup box needs these three pieces of information
 struct HelpInfo {
@@ -909,14 +715,6 @@ pub fn delete_confirm<B: Backend>(
     let no_area = split_buttons[1];
     let yes_area = split_buttons[3];
 
-    // Insert button areas into region map, so can interact with them on click
-    gui_state
-        .lock()
-        .update_region_map(Region::Delete(DeleteButton::No), no_area);
-
-    gui_state
-        .lock()
-        .update_region_map(Region::Delete(DeleteButton::Yes), yes_area);
 
     f.render_widget(Clear, area);
     f.render_widget(block, area);

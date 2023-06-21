@@ -1,8 +1,7 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
-use std::thread::current;
 
 use crossterm::{
     event::{DisableMouseCapture, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind},
@@ -15,15 +14,16 @@ use tokio::{
     task::JoinHandle,
 };
 
-mod message;
+pub use message::InputMessages;
 
 use crate::{
-    app_data::{AppData, DockerControls, Header},
+    app_data::{AppData, Header},
     app_error::AppError,
     docker_data::DockerMessage,
-    ui::{DeleteButton, GuiState, SelectablePanel, Status, Ui, NavPanel},
+    ui::{DeleteButton, GuiState, NavPanel, Status, Ui},
 };
-pub use message::InputMessages;
+
+mod message;
 
 /// Handle all input events
 #[derive(Debug)]
@@ -87,44 +87,6 @@ impl InputHandler {
         }
     }
 
-    /// Toggle the mouse capture (via input of the 'm' key)
-    fn m_key(&mut self) {
-        if self.mouse_capture {
-            if execute!(std::io::stdout(), DisableMouseCapture).is_ok() {
-                self.gui_state
-                    .lock()
-                    .set_info_box("✖ mouse capture disabled".to_owned());
-            } else {
-                self.app_data
-                    .lock()
-                    .set_error(AppError::MouseCapture(false));
-                self.gui_state.lock().status_push(Status::Error);
-            }
-        } else if Ui::enable_mouse_capture().is_ok() {
-            self.gui_state
-                .lock()
-                .set_info_box("✓ mouse capture enabled".to_owned());
-        } else {
-            self.app_data.lock().set_error(AppError::MouseCapture(true));
-            self.gui_state.lock().status_push(Status::Error);
-        };
-
-        // If the info box sleep handle is currently being executed, as in 'm' is pressed twice within a 4000ms window
-        // then cancel the first handle, as a new handle will be invoked
-        if let Some(info_sleep_timer) = self.info_sleep.as_ref() {
-            info_sleep_timer.abort();
-        }
-
-        let gui_state = Arc::clone(&self.gui_state);
-        // Show the info box - with "mouse capture enabled / disabled", for 4000 ms
-        self.info_sleep = Some(tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(4000)).await;
-            gui_state.lock().reset_info_box();
-        }));
-
-        self.mouse_capture = !self.mouse_capture;
-    }
-
     /// Sort the containers by a given header
     fn sort(&self, selected_header: Header) {
         self.app_data.lock().set_sort_by_header(selected_header);
@@ -184,8 +146,7 @@ impl InputHandler {
             }
         } else if contains_help {
             match key_code {
-                KeyCode::Char('h' | 'H') => self.gui_state.lock().status_del(Status::Help),
-                KeyCode::Char('m' | 'M') => self.m_key(),
+                KeyCode::Char('h' | 'H') | KeyCode::Esc | KeyCode::Enter => self.gui_state.lock().status_del(Status::Help),
                 _ => (),
             }
         } else if contains_delete {
@@ -195,16 +156,20 @@ impl InputHandler {
                 _ => (),
             }
         } else {
+            let current_panel = self.gui_state.lock().get_current_nav().clone();
             match key_code {
                 KeyCode::Enter | KeyCode::Char('l') => {
-                    let current_panel = self.gui_state.lock().get_current_nav().clone();
-                    if (current_panel == NavPanel::Containers) {
-                        self.gui_state.lock().append_nav(NavPanel::Logs {
-                            container_name: self.app_data.lock().get_selected_container_name().unwrap_or_else(|| "N/A".into())
-                        })
+                    if current_panel == NavPanel::Containers {
+                        self.gui_state.lock().append_nav(NavPanel::Logs)
                     }
                 },
                 KeyCode::Esc => self.gui_state.lock().back_in_nav(),
+
+                KeyCode::Char('m') =>  {
+                    if current_panel == NavPanel::Containers {
+                        self.gui_state.lock().append_nav(NavPanel::Metrics)
+                    }
+                }
 
                 KeyCode::Char('0') => self.app_data.lock().reset_sorted(),
                 KeyCode::Char('1') => self.sort(Header::State),
@@ -217,20 +182,21 @@ impl InputHandler {
                 KeyCode::Char('8') => self.sort(Header::Rx),
                 KeyCode::Char('9') => self.sort(Header::Tx),
                 KeyCode::Char('h' | 'H') => self.gui_state.lock().status_push(Status::Help),
-                KeyCode::Char('m' | 'M') => self.m_key(),
 
                 KeyCode::Home => {
                     let mut locked_data = self.app_data.lock();
                     match self.gui_state.lock().get_current_nav() {
                         NavPanel::Containers => locked_data.containers_start(),
-                        NavPanel::Logs { container_name: _ } => locked_data.log_start(),
+                        NavPanel::Logs => locked_data.log_start(),
+                        NavPanel::Metrics => {},
                     }
                 }
                 KeyCode::End => {
                     let mut locked_data = self.app_data.lock();
                     match self.gui_state.lock().get_current_nav() {
                         NavPanel::Containers => locked_data.containers_end(),
-                        NavPanel::Logs { container_name: _ } => locked_data.log_end(),
+                        NavPanel::Logs  => locked_data.log_end(),
+                        NavPanel::Metrics => {},
                     }
                 }
                 KeyCode::Up => self.previous(),
@@ -274,23 +240,6 @@ impl InputHandler {
         match mouse_event.kind {
             MouseEventKind::ScrollUp => self.previous(),
             MouseEventKind::ScrollDown => self.next(),
-            MouseEventKind::Down(MouseButton::Left) => {
-                if let Some(header) = self.gui_state.lock().header_intersect(Rect::new(
-                    mouse_event.column,
-                    mouse_event.row,
-                    1,
-                    1,
-                )) {
-                    self.sort(header);
-                }
-
-                self.gui_state.lock().panel_intersect(Rect::new(
-                    mouse_event.column,
-                    mouse_event.row,
-                    1,
-                    1,
-                ));
-            }
             _ => (),
         }
     }
@@ -300,7 +249,8 @@ impl InputHandler {
         let mut locked_data = self.app_data.lock();
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.containers_next(),
-            NavPanel::Logs {container_name: _}=> locked_data.log_next(),
+            NavPanel::Logs => locked_data.log_next(),
+            NavPanel::Metrics => {},
         };
     }
 
@@ -309,7 +259,8 @@ impl InputHandler {
         let mut locked_data = self.app_data.lock();
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.containers_previous(),
-            NavPanel::Logs {container_name:_}=> locked_data.log_previous(),
+            NavPanel::Logs => locked_data.log_previous(),
+            NavPanel::Metrics => {},
         }
     }
 }

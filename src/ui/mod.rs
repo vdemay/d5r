@@ -24,7 +24,7 @@ mod draw_blocks;
 mod gui_state;
 
 pub use self::color_match::*;
-pub use self::gui_state::{DeleteButton, GuiState, SelectablePanel, Status, NavPanel};
+pub use self::gui_state::{DeleteButton, GuiState, Status, NavPanel};
 use crate::{
     app_data::AppData, app_error::AppError, docker_data::DockerMessage,
     input_handler::InputMessages,
@@ -167,7 +167,6 @@ impl Ui {
                             _ => (),
                         }
                     } else if let Event::Resize(_, _) = event {
-                        self.gui_state.lock().clear_area_map();
                         self.terminal.autoresize().ok();
                     }
                 }
@@ -242,7 +241,8 @@ fn draw_frame<B: Backend>(
     // content
     match current_nav {
         NavPanel::Containers => draw_blocks::containers(app_data, whole_layout[1], f, gui_state, &column_widths),
-        NavPanel::Logs {container_name :_} => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
+        NavPanel::Logs  => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
+        NavPanel::Metrics => draw_blocks::chart(f, whole_layout[1], app_data)
     }
 
     // nav - TODO
