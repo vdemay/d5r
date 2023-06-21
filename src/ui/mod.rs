@@ -221,7 +221,7 @@ fn draw_frame<B: Backend>(
 
     let whole_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Min(100)].as_ref())
+        .constraints([Constraint::Min(8), Constraint::Percentage(100)].as_ref())
         .split(f.size());
 
     // Split into 3, containers+controls, logs, then graphs
@@ -267,13 +267,9 @@ fn draw_frame<B: Backend>(
 
     draw_blocks::logs(app_data, lower_main[0], f, gui_state, &loading_icon);
 
-    draw_blocks::heading_bar(
-        whole_layout[0],
-        &column_widths,
+    draw_blocks::top_menu(
         f,
-        has_containers,
-        &loading_icon,
-        sorted_by,
+        whole_layout[0],
         gui_state,
     );
 

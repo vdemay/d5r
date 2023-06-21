@@ -3,6 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
 };
+use std::borrow::Cow;
 use uuid::Uuid;
 
 use crate::app_data::{ContainerId, Header};
@@ -35,6 +36,25 @@ impl SelectablePanel {
             Self::Containers => Self::Logs,
             Self::Commands => Self::Containers,
             Self::Logs => Self::Commands,
+        }
+    }
+}
+
+
+#[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
+pub enum NavPanel {
+    #[default]
+    Containers,
+    Logs {
+        container_name: String
+    },
+}
+
+impl NavPanel {
+    pub fn title(&self) -> Cow<'static, str> {
+        match self {
+            Self::Containers => "Containers".into(),
+            Self::Logs{container_name} => format!("{container_name} Logs").into()
         }
     }
 }
@@ -220,6 +240,8 @@ pub struct GuiState {
     delete_container: Option<ContainerId>,
     pub info_box_text: Option<String>,
     pub selected_panel: SelectablePanel,
+    pub nav: Vec<NavPanel>,
+    pub current_panel: NavPanel,
 }
 impl GuiState {
     /// Clear panels hash map, so on resize can fix the sizes for mouse clicks

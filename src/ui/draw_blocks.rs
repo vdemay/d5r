@@ -13,6 +13,7 @@ use ratatui::{
 };
 use std::default::Default;
 use std::{fmt::Display, sync::Arc};
+use tracing::Instrument;
 
 use crate::app_data::{Header, SortedOrder};
 use crate::ui::Status;
@@ -20,19 +21,17 @@ use crate::{
     app_data::{AppData, ByteStats, Columns, CpuStats, State, Stats},
     app_error::AppError,
 };
+use crate::ui::gui_state::NavPanel;
 
 use super::gui_state::{BoxLocation, DeleteButton, Region};
 use super::{GuiState, SelectablePanel};
 
-const NAME_TEXT: &str = r#"
-                          88                               
-                          88                               
-                          88                               
- ,adPPYba,   8b,     ,d8  88   ,d8    ,adPPYba,  8b,dPPYba,
-a8"     "8a   `Y8, ,8P'   88 ,a8"    a8P_____88  88P'   "Y8
-8b       d8     )888(     8888[      8PP"""""""  88        
-"8a,   ,a8"   ,d8" "8b,   88`"Yba,   "8b,   ,aa  88        
- `"YbbdP"'   8P'     `Y8  88   `Y8a   `"Ybbd8"'  88        "#;
+const LOGO: &str = r#"    .___.________
+  __| _/|   ____/______
+ / __ | |____  \\_  __ \
+/ /_/ | /       \|  | \/
+\____ |/______  /|__|
+     \/       \/        "#;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -41,7 +40,7 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 const ORANGE: Color = Color::Rgb(255, 178, 36);
 const MARGIN: &str = "   ";
 const ARROW: &str = "▶ ";
-const CIRCLE: &str = "⚪ ";
+const CIRCLE: &str = "* ";
 
 /// From a given &str, return the maximum number of chars on a single line
 fn max_line_width(text: &str) -> usize {
@@ -212,7 +211,7 @@ pub fn containers<B: Backend>(
     } else {
         let items = List::new(items)
             .block(block)
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD).bg(Color::Blue))
             .highlight_symbol(CIRCLE);
 
         f.render_stateful_widget(items, area, app_data.lock().get_container_state());
@@ -333,6 +332,60 @@ fn make_chart<'a, T: Stats + Display>(
                 // Add 0.01, so that max point is always visible?
                 .bounds([0.0, max.get_value() + 0.01]),
         )
+}
+
+pub fn top_menu<B: Backend>(
+    f: &mut Frame<'_, B>,
+    area: Rect,
+    gui_state: &Arc<Mutex<GuiState>>,
+) {
+    let split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(30), Constraint::Percentage(100), Constraint::Min(25)].as_ref())
+        .split(area);
+
+    // left part
+    let mut left_lines = vec![
+        Line::from(""),
+        Line::from(Span::styled("Hackathon", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("June 2023", Style::default().fg(Color::White))),
+    ];
+    let left = Paragraph::new(left_lines)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .alignment(Alignment::Left);
+    f.render_widget(left, split[0]);
+
+    //actions
+    let mut actions_lines = vec![
+        Line::from(""),
+    ];
+    match gui_state.lock().current_panel {
+        NavPanel::Containers => {
+            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(s) start", Style::default().fg(Color::White))));
+            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))));
+            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(r) restart", Style::default().fg(Color::White))));
+        }
+        NavPanel::Logs{container_name: _} => {
+            actions_lines.insert(actions_lines.len(), Line::from(Span::styled("(s) toggle scroll", Style::default().fg(Color::White))));
+        }
+    };
+    let actions = Paragraph::new(actions_lines)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .alignment(Alignment::Left);
+    f.render_widget(actions, split[1]);
+
+    // Right logo drawing
+    let mut logo_lines = LOGO
+        .lines()
+        .map(|i| Line::from(Span::styled(i.to_owned(), Style::default().fg(Color::White))))
+        .collect::<Vec<_>>();
+    let logo = Paragraph::new(logo_lines)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .alignment(Alignment::Left);
+    f.render_widget(logo, split[2]);
 }
 
 /// Draw heading bar at top of program, always visible
@@ -527,7 +580,7 @@ impl HelpInfo {
 
     /// Generate the `oxker` name span + metadata
     fn gen_name() -> Self {
-        let mut lines = NAME_TEXT
+        let mut lines = LOGO
             .lines()
             .map(|i| Line::from(Self::white_span(i)))
             .collect::<Vec<_>>();
@@ -692,7 +745,7 @@ pub fn help_box<B: Backend>(f: &mut Frame<'_, B>) {
     let name_paragraph = Paragraph::new(name_info.lines)
         .style(Style::default().bg(Color::Magenta).fg(Color::White))
         .block(Block::default())
-        .alignment(Alignment::Center);
+        .alignment(Alignment::Left);
 
     let description_paragraph = Paragraph::new(description_info.lines)
         .style(Style::default().bg(Color::Magenta).fg(Color::Black))
