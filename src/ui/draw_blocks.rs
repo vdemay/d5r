@@ -18,9 +18,11 @@ use ratatui::{
 use crate::ui::gui_state::NavPanel;
 use crate::ui::Status;
 use crate::{
-    app_data::{AppData, ByteStats, Columns, CpuStats, State, Stats},
+    app_data::container_state::Stats,
+    app_data::AppData,
     app_error::AppError,
 };
+use crate::app_data::container_state::{ByteStats, Columns, CpuStats, State};
 
 use super::gui_state::BoxLocation;
 use super::GuiState;
@@ -62,11 +64,11 @@ fn generate_block<'a>(
             format!(
                 "{} {}",
                 nav_panel.title(),
-                app_data.lock().container_title()
+                app_data.lock().container_data.container_title()
             )
         }
         NavPanel::Logs => {
-            format!("{} {}", nav_panel.title(), app_data.lock().get_log_title())
+            format!("{} {}", nav_panel.title(), app_data.lock().container_data.get_log_title())
         }
         _ => String::new(),
     };
@@ -92,6 +94,7 @@ pub fn containers<B: Backend>(
 
     let items = app_data
         .lock()
+        .container_data
         .get_container_items()
         .iter()
         .map(|i| {
@@ -179,7 +182,7 @@ pub fn containers<B: Backend>(
             )
             .highlight_symbol(CIRCLE);
 
-        f.render_stateful_widget(items, area, app_data.lock().get_container_state());
+        f.render_stateful_widget(items, area, app_data.lock().container_data.get_container_state());
     }
 }
 
@@ -199,7 +202,7 @@ pub fn logs<B: Backend>(
             .alignment(Alignment::Center);
         f.render_widget(paragraph, area);
     } else {
-        let logs = app_data.lock().get_logs();
+        let logs = app_data.lock().container_data.get_logs();
 
         if logs.is_empty() {
             let paragraph = Paragraph::new("no logs found")
@@ -213,7 +216,7 @@ pub fn logs<B: Backend>(
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
             // This should always return Some, as logs is not empty
-            if let Some(i) = app_data.lock().get_log_state() {
+            if let Some(i) = app_data.lock().container_data.get_log_state() {
                 f.render_stateful_widget(items, area, i);
             }
         }
@@ -222,7 +225,7 @@ pub fn logs<B: Backend>(
 
 /// Draw the cpu + mem charts
 pub fn chart<B: Backend>(f: &mut Frame<'_, B>, area: Rect, app_data: &Arc<Mutex<AppData>>) {
-    if let Some((cpu, mem)) = app_data.lock().get_chart_data() {
+    if let Some((cpu, mem)) = app_data.lock().container_data.get_chart_data() {
         let area = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())

@@ -18,8 +18,9 @@ use uuid::Uuid;
 
 pub use message::DockerMessage;
 
+use crate::app_data::container_state::{ContainerId, DockerControls};
 use crate::{
-    app_data::{AppData, ContainerId, DockerControls},
+    app_data::AppData,
     app_error::AppError,
     parse_args::CliArgs,
     ui::{GuiState, Status},
@@ -136,7 +137,7 @@ impl DockerData {
             };
 
             if is_running {
-                app_data.lock().update_stats(
+                app_data.lock().container_data.update_stats(
                     &id,
                     Some(cpu_stats),
                     Some(mem_stat),
@@ -147,6 +148,7 @@ impl DockerData {
             } else {
                 app_data
                     .lock()
+                    .container_data
                     .update_stats(&id, None, None, mem_limit, rx, tx);
             }
             spawns.lock().remove(&spawn_id);
@@ -209,7 +211,7 @@ impl DockerData {
             })
             .collect::<Vec<ContainerSummary>>();
 
-        self.app_data.lock().update_containers(&mut output);
+        self.app_data.lock().container_data.update_containers(&mut output);
 
         // Just get the containers that are currently running, or being restarted, no point updating info on paused or dead containers
         output
@@ -252,7 +254,7 @@ impl DockerData {
             }
         }
         spawns.lock().remove(&SpawnId::Log(id.clone()));
-        app_data.lock().update_log_by_id(output, &id);
+        app_data.lock().container_data.update_log_by_id(output, &id);
     }
 
     /// Update all logs, spawn each container into own tokio::spawn thread
@@ -272,7 +274,7 @@ impl DockerData {
     /// Update all cpu_mem, and selected container log (if a log update join_handle isn't currently being executed)
     async fn update_everything(&mut self) {
         let all_ids = self.update_all_containers().await;
-        if let Some(container) = self.app_data.lock().get_selected_container() {
+        if let Some(container) = self.app_data.lock().container_data.get_selected_container() {
             let last_updated = container.last_updated;
             self.spawns
                 .lock()
@@ -286,7 +288,7 @@ impl DockerData {
                 });
         };
         self.update_all_container_stats(&all_ids);
-        self.app_data.lock().sort_containers();
+        self.app_data.lock().container_data.sort_containers();
     }
 
     /// Animate the loading icon
@@ -323,7 +325,7 @@ impl DockerData {
         self.init_all_logs(&all_ids);
 
         // wait until all logs have initialised
-        while !self.app_data.lock().initialised(&all_ids) {
+        while !self.app_data.lock().container_data.initialised(&all_ids) {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
         self.gui_state.lock().status_del(Status::Init);

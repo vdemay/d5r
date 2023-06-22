@@ -7,7 +7,7 @@ use std::{
 use ratatui::layout::{Constraint, Rect};
 use uuid::Uuid;
 
-use crate::app_data::ContainerId;
+use crate::app_data::container_state::ContainerId;
 
 #[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
 pub enum NavPanel {

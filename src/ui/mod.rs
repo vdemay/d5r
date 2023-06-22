@@ -206,13 +206,13 @@ fn draw_frame<B: Backend>(
     gui_state: &Arc<Mutex<GuiState>>,
 ) {
     // set max height for container section, needs +5 to deal with docker commands list and borders
-    let height = app_data.lock().get_container_len();
+    let height = app_data.lock().container_data.get_container_len();
     let height = if height < 12 { height + 5 } else { 12 };
 
-    let column_widths = app_data.lock().get_width();
-    let has_containers = app_data.lock().get_container_len() > 0;
+    let column_widths = app_data.lock().container_data.get_width();
+    let has_containers = app_data.lock().container_data.get_container_len() > 0;
     let has_error = app_data.lock().get_error();
-    let sorted_by = app_data.lock().get_sorted();
+    let sorted_by = app_data.lock().container_data.get_sorted();
 
     let delete_confirm = gui_state.lock().get_delete_container();
 
@@ -255,7 +255,7 @@ fn draw_frame<B: Backend>(
     // nav - TODO
 
     if let Some(id) = delete_confirm {
-        app_data.lock().get_container_name_by_id(&id).map_or_else(
+        app_data.lock().container_data.get_container_name_by_id(&id).map_or_else(
             || {
                 // If a container is deleted outside of oxker but whilst the Delete Confirm dialog is open, it can get caught in kind of a dead lock situation
                 // so if in that unique situation, just clear the delete_container id

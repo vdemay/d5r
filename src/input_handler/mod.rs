@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use crossterm::{
-    event::{DisableMouseCapture, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind},
+    event::{KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind},
     execute,
 };
 use parking_lot::Mutex;
@@ -17,8 +17,8 @@ use tokio::{
 pub use message::InputMessages;
 
 use crate::{
-    app_data::{AppData, Header},
-    app_error::AppError,
+    app_data::container_data::Header,
+    app_data::AppData,
     docker_data::DockerMessage,
     ui::{DeleteButton, GuiState, NavPanel, Status, Ui},
 };
@@ -89,7 +89,7 @@ impl InputHandler {
 
     /// Sort the containers by a given header
     fn sort(&self, selected_header: Header) {
-        self.app_data.lock().set_sort_by_header(selected_header);
+        self.app_data.lock().container_data.set_sort_by_header(selected_header);
     }
 
     /// Send a quit message to docker, to abort all spawns, if an error is returned, set is_running to false here instead
@@ -173,7 +173,7 @@ impl InputHandler {
                     }
                 }
 
-                KeyCode::Char('0') => self.app_data.lock().reset_sorted(),
+                KeyCode::Char('0') => self.app_data.lock().container_data.reset_sorted(),
                 KeyCode::Char('1') => self.sort(Header::State),
                 KeyCode::Char('2') => self.sort(Header::Status),
                 KeyCode::Char('3') => self.sort(Header::Cpu),
@@ -188,16 +188,16 @@ impl InputHandler {
                 KeyCode::Home => {
                     let mut locked_data = self.app_data.lock();
                     match self.gui_state.lock().get_current_nav() {
-                        NavPanel::Containers => locked_data.containers_start(),
-                        NavPanel::Logs => locked_data.log_start(),
+                        NavPanel::Containers => locked_data.container_data.containers_start(),
+                        NavPanel::Logs => locked_data.container_data.log_start(),
                         NavPanel::Metrics => {}
                     }
                 }
                 KeyCode::End => {
                     let mut locked_data = self.app_data.lock();
                     match self.gui_state.lock().get_current_nav() {
-                        NavPanel::Containers => locked_data.containers_end(),
-                        NavPanel::Logs => locked_data.log_end(),
+                        NavPanel::Containers => locked_data.container_data.containers_end(),
+                        NavPanel::Logs => locked_data.container_data.log_end(),
                         NavPanel::Metrics => {}
                     }
                 }
@@ -250,8 +250,8 @@ impl InputHandler {
     fn next(&mut self) {
         let mut locked_data = self.app_data.lock();
         match self.gui_state.lock().get_current_nav() {
-            NavPanel::Containers => locked_data.containers_next(),
-            NavPanel::Logs => locked_data.log_next(),
+            NavPanel::Containers => locked_data.container_data.containers_next(),
+            NavPanel::Logs => locked_data.container_data.log_next(),
             NavPanel::Metrics => {}
         };
     }
@@ -260,8 +260,8 @@ impl InputHandler {
     fn previous(&mut self) {
         let mut locked_data = self.app_data.lock();
         match self.gui_state.lock().get_current_nav() {
-            NavPanel::Containers => locked_data.containers_previous(),
-            NavPanel::Logs => locked_data.log_previous(),
+            NavPanel::Containers => locked_data.container_data.containers_previous(),
+            NavPanel::Logs => locked_data.container_data.log_previous(),
             NavPanel::Metrics => {}
         }
     }

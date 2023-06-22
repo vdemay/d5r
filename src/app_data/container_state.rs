@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{ListItem, ListState},
 };
 
-use super::Header;
+use crate::app_data::container_data::Header;
 
 const ONE_KB: f64 = 1000.0;
 const ONE_MB: f64 = ONE_KB * 1000.0;
