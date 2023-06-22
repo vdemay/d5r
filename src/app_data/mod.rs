@@ -37,5 +37,4 @@ impl AppData {
     pub fn set_error(&mut self, error: AppError) {
         self.error = Some(error);
     }
-
 }
