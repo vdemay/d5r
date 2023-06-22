@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::current,
 };
 
 use crossterm::{
@@ -20,7 +23,7 @@ use crate::{
     app_data::container_data::Header,
     app_data::AppData,
     docker_data::DockerMessage,
-    ui::{DeleteButton, GuiState, NavPanel, Status, Ui},
+    ui::{Action, DeleteButton, GuiState, NavPanel, Status},
 };
 
 mod message;
@@ -89,7 +92,10 @@ impl InputHandler {
 
     /// Sort the containers by a given header
     fn sort(&self, selected_header: Header) {
-        self.app_data.lock().container_data.set_sort_by_header(selected_header);
+        self.app_data
+            .lock()
+            .container_data
+            .set_sort_by_header(selected_header);
     }
 
     /// Send a quit message to docker, to abort all spawns, if an error is returned, set is_running to false here instead
@@ -159,30 +165,8 @@ impl InputHandler {
             }
         } else {
             let current_panel = self.gui_state.lock().get_current_nav().clone();
+            let current_actions = current_panel.all_actions();
             match key_code {
-                KeyCode::Enter | KeyCode::Char('l') => {
-                    if current_panel == NavPanel::Containers {
-                        self.gui_state.lock().append_nav(NavPanel::Logs)
-                    }
-                }
-                KeyCode::Esc => self.gui_state.lock().back_in_nav(),
-
-                KeyCode::Char('m') => {
-                    if current_panel == NavPanel::Containers {
-                        self.gui_state.lock().append_nav(NavPanel::Metrics)
-                    }
-                }
-
-                KeyCode::Char('0') => self.app_data.lock().container_data.reset_sorted(),
-                KeyCode::Char('1') => self.sort(Header::State),
-                KeyCode::Char('2') => self.sort(Header::Status),
-                KeyCode::Char('3') => self.sort(Header::Cpu),
-                KeyCode::Char('4') => self.sort(Header::Memory),
-                KeyCode::Char('5') => self.sort(Header::Id),
-                KeyCode::Char('6') => self.sort(Header::Name),
-                KeyCode::Char('7') => self.sort(Header::Image),
-                KeyCode::Char('8') => self.sort(Header::Rx),
-                KeyCode::Char('9') => self.sort(Header::Tx),
                 KeyCode::Char('h' | 'H') => self.gui_state.lock().status_push(Status::Help),
 
                 KeyCode::Home => {
@@ -213,6 +197,19 @@ impl InputHandler {
                         self.next();
                     }
                 }
+
+                kc => current_actions
+                    .iter()
+                    .filter(|a| a.key() == kc)
+                    .for_each(|a| match a {
+                        Action::NavAction(_, _, next) => {
+                            self.gui_state.lock().append_nav(next.clone())
+                        }
+                        Action::BackAction(_, _) => self.gui_state.lock().back_in_nav(),
+                        Action::RunAction(_, _) => (),
+                        _ => (),
+                    }),
+
                 _ => (),
             }
         }

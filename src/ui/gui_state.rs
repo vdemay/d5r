@@ -4,28 +4,13 @@ use std::{
     fmt,
 };
 
+use nav::NavPanel;
 use ratatui::layout::{Constraint, Rect};
 use uuid::Uuid;
 
 use crate::app_data::container_state::ContainerId;
 
-#[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
-pub enum NavPanel {
-    #[default]
-    Containers,
-    Logs,
-    Metrics,
-}
-
-impl NavPanel {
-    pub fn title(&self) -> Cow<'static, str> {
-        match self {
-            Self::Containers => "Containers".into(),
-            Self::Logs => "Logs".into(),
-            Self::Metrics => "Metrics".into(),
-        }
-    }
-}
+pub mod nav;
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum DeleteButton {

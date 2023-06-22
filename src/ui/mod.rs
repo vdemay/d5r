@@ -11,6 +11,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+pub use gui_state::nav::*;
 use parking_lot::Mutex;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
@@ -26,7 +27,7 @@ use crate::{
 };
 
 pub use self::color_match::*;
-pub use self::gui_state::{DeleteButton, GuiState, NavPanel, Status};
+pub use self::gui_state::{DeleteButton, GuiState, Status};
 
 mod color_match;
 mod draw_blocks;
@@ -255,16 +256,20 @@ fn draw_frame<B: Backend>(
     // nav - TODO
 
     if let Some(id) = delete_confirm {
-        app_data.lock().container_data.get_container_name_by_id(&id).map_or_else(
-            || {
-                // If a container is deleted outside of oxker but whilst the Delete Confirm dialog is open, it can get caught in kind of a dead lock situation
-                // so if in that unique situation, just clear the delete_container id
-                gui_state.lock().set_delete_container(None);
-            },
-            |name| {
-                draw_blocks::delete_confirm(f, gui_state, &name);
-            },
-        );
+        app_data
+            .lock()
+            .container_data
+            .get_container_name_by_id(&id)
+            .map_or_else(
+                || {
+                    // If a container is deleted outside of oxker but whilst the Delete Confirm dialog is open, it can get caught in kind of a dead lock situation
+                    // so if in that unique situation, just clear the delete_container id
+                    gui_state.lock().set_delete_container(None);
+                },
+                |name| {
+                    draw_blocks::delete_confirm(f, gui_state, &name);
+                },
+            );
     }
 
     if let Some(info) = info_text {
