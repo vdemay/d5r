@@ -5,8 +5,8 @@ use bollard::models::ContainerSummary;
 use ratatui::widgets::{ListItem, ListState};
 
 use crate::app_data::container_state::{
-    ByteStats, Columns, ContainerId, ContainerItem, CpuStats, CpuTuple, DockerControls,
-    LogsTz, MemTuple, State, StatefulList,
+    ByteStats, Columns, ContainerId, ContainerItem, CpuStats, CpuTuple, DockerControls, LogsTz,
+    MemTuple, State, StatefulList,
 };
 use crate::{parse_args::CliArgs, ui::log_sanitizer, ENTRY_POINT};
 
@@ -233,53 +233,6 @@ impl ContainerData {
     /// Get ListState of containers
     pub fn get_container_state(&mut self) -> &mut ListState {
         &mut self.containers.state
-    }
-
-    /// Selected DockerCommand methods
-
-    /// Get the current selected docker command
-    /// So know which command to execute
-    pub fn selected_docker_command(&self) -> Option<DockerControls> {
-        self.get_selected_container().and_then(|i| {
-            i.docker_controls.state.selected().and_then(|x| {
-                i.docker_controls
-                    .items
-                    .get(x)
-                    .map(std::borrow::ToOwned::to_owned)
-            })
-        })
-    }
-    /// Get mutable Option of the currently selected container DockerControls state
-    pub fn get_control_state(&mut self) -> Option<&mut ListState> {
-        self.get_mut_selected_container()
-            .map(|i| &mut i.docker_controls.state)
-    }
-
-    /// Get mutable Option of the currently selected container DockerControls items
-    pub fn get_control_items(&mut self) -> Option<&mut Vec<DockerControls>> {
-        self.get_mut_selected_container()
-            .map(|i| &mut i.docker_controls.items)
-    }
-
-    /// Change selected choice of docker commands of selected container
-    pub fn docker_command_next(&mut self) {
-        if let Some(i) = self.get_mut_selected_container() {
-            i.docker_controls.next();
-        }
-    }
-
-    /// Change selected choice of docker commands of selected container
-    pub fn docker_command_previous(&mut self) {
-        if let Some(i) = self.get_mut_selected_container() {
-            i.docker_controls.previous();
-        }
-    }
-
-    /// Change selected choice of docker commands of selected container
-    pub fn docker_command_start(&mut self) {
-        if let Some(i) = self.get_mut_selected_container() {
-            i.docker_controls.start();
-        }
     }
 
     /// Change selected choice of docker commands of selected container
