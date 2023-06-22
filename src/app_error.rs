@@ -1,5 +1,6 @@
-use crate::app_data::DockerControls;
 use std::fmt;
+
+use crate::app_data::DockerControls;
 
 /// app errors to set in global state
 #[allow(unused)]

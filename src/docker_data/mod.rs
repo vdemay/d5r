@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
+
 use bollard::{
     container::{
         ListContainersOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions, Stats,
@@ -8,12 +13,10 @@ use bollard::{
 };
 use futures_util::StreamExt;
 use parking_lot::Mutex;
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use uuid::Uuid;
+
+pub use message::DockerMessage;
 
 use crate::{
     app_data::{AppData, ContainerId, DockerControls},
@@ -22,8 +25,8 @@ use crate::{
     ui::{GuiState, Status},
     ENTRY_POINT,
 };
+
 mod message;
-pub use message::DockerMessage;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 enum SpawnId {

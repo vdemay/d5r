@@ -15,19 +15,24 @@
 // Only allow when debugging
 // #![allow(unused)]
 
-use app_data::AppData;
-use app_error::AppError;
-use bollard::Docker;
-use docker_data::DockerData;
-use input_handler::InputMessages;
-use parking_lot::Mutex;
-use parse_args::CliArgs;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+
+use bollard::Docker;
+use parking_lot::Mutex;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{info, Level};
+
+use app_data::AppData;
+use app_error::AppError;
+use docker_data::DockerData;
+use input_handler::InputMessages;
+use parse_args::CliArgs;
+use ui::{GuiState, Status, Ui};
+
+use crate::docker_data::DockerMessage;
 
 mod app_data;
 mod app_error;
@@ -35,10 +40,6 @@ mod docker_data;
 mod input_handler;
 mod parse_args;
 mod ui;
-
-use ui::{GuiState, Status, Ui};
-
-use crate::docker_data::DockerMessage;
 
 /// This is the entry point when running as a Docker Container, and is used, in conjunction with the `CONTAINER_ENV` ENV, to check if we are running as a Docker Container
 const ENTRY_POINT: &str = "/app/oxker";

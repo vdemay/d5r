@@ -1,6 +1,6 @@
 use std::sync::{
-    Arc,
     atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
 use crossterm::{
@@ -146,7 +146,9 @@ impl InputHandler {
             }
         } else if contains_help {
             match key_code {
-                KeyCode::Char('h' | 'H') | KeyCode::Esc | KeyCode::Enter => self.gui_state.lock().status_del(Status::Help),
+                KeyCode::Char('h' | 'H') | KeyCode::Esc | KeyCode::Enter => {
+                    self.gui_state.lock().status_del(Status::Help)
+                }
                 _ => (),
             }
         } else if contains_delete {
@@ -162,10 +164,10 @@ impl InputHandler {
                     if current_panel == NavPanel::Containers {
                         self.gui_state.lock().append_nav(NavPanel::Logs)
                     }
-                },
+                }
                 KeyCode::Esc => self.gui_state.lock().back_in_nav(),
 
-                KeyCode::Char('m') =>  {
+                KeyCode::Char('m') => {
                     if current_panel == NavPanel::Containers {
                         self.gui_state.lock().append_nav(NavPanel::Metrics)
                     }
@@ -188,15 +190,15 @@ impl InputHandler {
                     match self.gui_state.lock().get_current_nav() {
                         NavPanel::Containers => locked_data.containers_start(),
                         NavPanel::Logs => locked_data.log_start(),
-                        NavPanel::Metrics => {},
+                        NavPanel::Metrics => {}
                     }
                 }
                 KeyCode::End => {
                     let mut locked_data = self.app_data.lock();
                     match self.gui_state.lock().get_current_nav() {
                         NavPanel::Containers => locked_data.containers_end(),
-                        NavPanel::Logs  => locked_data.log_end(),
-                        NavPanel::Metrics => {},
+                        NavPanel::Logs => locked_data.log_end(),
+                        NavPanel::Metrics => {}
                     }
                 }
                 KeyCode::Up => self.previous(),
@@ -250,7 +252,7 @@ impl InputHandler {
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.containers_next(),
             NavPanel::Logs => locked_data.log_next(),
-            NavPanel::Metrics => {},
+            NavPanel::Metrics => {}
         };
     }
 
@@ -260,7 +262,7 @@ impl InputHandler {
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.containers_previous(),
             NavPanel::Logs => locked_data.log_previous(),
-            NavPanel::Metrics => {},
+            NavPanel::Metrics => {}
         }
     }
 }

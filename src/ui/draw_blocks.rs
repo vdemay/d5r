@@ -1,3 +1,6 @@
+use std::default::Default;
+use std::{fmt::Display, sync::Arc};
+
 use parking_lot::Mutex;
 use ratatui::{
     backend::Backend,
@@ -11,18 +14,16 @@ use ratatui::{
     },
     Frame,
 };
-use std::default::Default;
-use std::{fmt::Display, sync::Arc};
 
+use crate::ui::gui_state::NavPanel;
 use crate::ui::Status;
 use crate::{
     app_data::{AppData, ByteStats, Columns, CpuStats, State, Stats},
     app_error::AppError,
 };
-use crate::ui::gui_state::NavPanel;
 
-use super::gui_state::{BoxLocation};
-use super::{GuiState};
+use super::gui_state::BoxLocation;
+use super::GuiState;
 
 const LOGO: &str = r#"    .___.________
   __| _/|   ____/______
@@ -53,12 +54,16 @@ fn max_line_width(text: &str) -> usize {
 fn generate_block<'a>(
     app_data: &Arc<Mutex<AppData>>,
     area: Rect,
-    gui_state: &Arc<Mutex<GuiState>>
+    gui_state: &Arc<Mutex<GuiState>>,
 ) -> Block<'a> {
     let nav_panel = gui_state.lock().get_current_nav().clone();
     let mut title = match nav_panel {
         NavPanel::Containers => {
-            format!("{} {}", nav_panel.title(), app_data.lock().container_title())
+            format!(
+                "{} {}",
+                nav_panel.title(),
+                app_data.lock().container_title()
+            )
         }
         NavPanel::Logs => {
             format!("{} {}", nav_panel.title(), app_data.lock().get_log_title())
@@ -74,7 +79,6 @@ fn generate_block<'a>(
         .title(title);
     block
 }
-
 
 /// Draw the containers panel
 pub fn containers<B: Backend>(
@@ -168,7 +172,11 @@ pub fn containers<B: Backend>(
     } else {
         let items = List::new(items)
             .block(block)
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD).bg(Color::Blue))
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::Blue),
+            )
             .highlight_symbol(CIRCLE);
 
         f.render_stateful_widget(items, area, app_data.lock().get_container_state());
@@ -291,97 +299,164 @@ fn make_chart<'a, T: Stats + Display>(
         )
 }
 
-pub fn top_menu<B: Backend>(
-    f: &mut Frame<'_, B>,
-    area: Rect,
-    gui_state: &Arc<Mutex<GuiState>>,
-) {
+pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mutex<GuiState>>) {
     let split = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(30), Constraint::Percentage(100), Constraint::Min(25)].as_ref())
+        .constraints(
+            [
+                Constraint::Min(30),
+                Constraint::Percentage(100),
+                Constraint::Min(25),
+            ]
+            .as_ref(),
+        )
         .split(area);
 
     // left part
     let mut left_lines = vec![
         Line::from(""),
-        Line::from(Span::styled("Hackathon", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Hackathon",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )),
         Line::from(Span::styled("June 2023", Style::default().fg(Color::White))),
     ];
     let left = Paragraph::new(left_lines)
         .style(Style::default().fg(Color::White))
-        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .style(Style::default())
+                .borders(Borders::NONE),
+        )
         .alignment(Alignment::Left);
     f.render_widget(left, split[0]);
 
     //actions
     let split_actions = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(25), Constraint::Min(25), Constraint::Min(25), Constraint::Percentage(100)].as_ref())
+        .constraints(
+            [
+                Constraint::Min(25),
+                Constraint::Min(25),
+                Constraint::Min(25),
+                Constraint::Percentage(100),
+            ]
+            .as_ref(),
+        )
         .split(split[1]);
 
     // --- column 1
-    let mut actions_lines_0 = vec![
-        Line::from(""),
-    ];
+    let mut actions_lines_0 = vec![Line::from("")];
     match gui_state.lock().get_current_nav() {
         NavPanel::Containers => {
-            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(l) logs", Style::default().fg(Color::White))));
-            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(m) metrics", Style::default().fg(Color::White))));
-            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(c) docker compose", Style::default().fg(Color::White))));
+            actions_lines_0.insert(
+                actions_lines_0.len(),
+                Line::from(Span::styled("(l) logs", Style::default().fg(Color::White))),
+            );
+            actions_lines_0.insert(
+                actions_lines_0.len(),
+                Line::from(Span::styled(
+                    "(m) metrics",
+                    Style::default().fg(Color::White),
+                )),
+            );
+            actions_lines_0.insert(
+                actions_lines_0.len(),
+                Line::from(Span::styled(
+                    "(c) docker compose",
+                    Style::default().fg(Color::White),
+                )),
+            );
         }
         NavPanel::Logs | NavPanel::Metrics => {
-            actions_lines_0.insert(actions_lines_0.len(), Line::from(Span::styled("(esc) back", Style::default().fg(Color::White))));
+            actions_lines_0.insert(
+                actions_lines_0.len(),
+                Line::from(Span::styled(
+                    "(esc) back",
+                    Style::default().fg(Color::White),
+                )),
+            );
         }
     };
     let actions_0 = Paragraph::new(actions_lines_0)
         .style(Style::default().fg(Color::White))
-        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .style(Style::default())
+                .borders(Borders::NONE),
+        )
         .alignment(Alignment::Left);
     f.render_widget(actions_0, split_actions[0]);
 
     // --- column 2
-    let mut actions_lines_1 = vec![
-        Line::from(""),
-    ];
+    let mut actions_lines_1 = vec![Line::from("")];
     match gui_state.lock().get_current_nav() {
         NavPanel::Containers => {
-            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(s) start", Style::default().fg(Color::White))));
-            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))));
-            actions_lines_1.insert(actions_lines_1.len(), Line::from(Span::styled("(r) restart", Style::default().fg(Color::White))));
+            actions_lines_1.insert(
+                actions_lines_1.len(),
+                Line::from(Span::styled("(s) start", Style::default().fg(Color::White))),
+            );
+            actions_lines_1.insert(
+                actions_lines_1.len(),
+                Line::from(Span::styled("(S) stop", Style::default().fg(Color::White))),
+            );
+            actions_lines_1.insert(
+                actions_lines_1.len(),
+                Line::from(Span::styled(
+                    "(r) restart",
+                    Style::default().fg(Color::White),
+                )),
+            );
         }
-        _ => { }
+        _ => {}
     };
     let actions_1 = Paragraph::new(actions_lines_1)
         .style(Style::default().fg(Color::White))
-        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .style(Style::default())
+                .borders(Borders::NONE),
+        )
         .alignment(Alignment::Left);
     f.render_widget(actions_1, split_actions[1]);
 
     // --- columns 3
-    let mut actions_lines_2 = vec![
-        Line::from(""),
-    ];
+    let mut actions_lines_2 = vec![Line::from("")];
     match gui_state.lock().get_current_nav() {
         _ => {}
     };
     let actions_2 = Paragraph::new(actions_lines_2)
         .style(Style::default().fg(Color::White))
-        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .style(Style::default())
+                .borders(Borders::NONE),
+        )
         .alignment(Alignment::Left);
     f.render_widget(actions_2, split_actions[2]);
 
     // Right logo drawing
     let mut logo_lines = LOGO
         .lines()
-        .map(|i| Line::from(Span::styled(i.to_owned(), Style::default().fg(Color::White))))
+        .map(|i| {
+            Line::from(Span::styled(
+                i.to_owned(),
+                Style::default().fg(Color::White),
+            ))
+        })
         .collect::<Vec<_>>();
     let logo = Paragraph::new(logo_lines)
         .style(Style::default().fg(Color::White))
-        .block(Block::default().style(Style::default()).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .style(Style::default())
+                .borders(Borders::NONE),
+        )
         .alignment(Alignment::Left);
     f.render_widget(logo, split[2]);
 }
-
 
 /// Help popup box needs these three pieces of information
 struct HelpInfo {
@@ -714,7 +789,6 @@ pub fn delete_confirm<B: Backend>(
 
     let no_area = split_buttons[1];
     let yes_area = split_buttons[3];
-
 
     f.render_widget(Clear, area);
     f.render_widget(block, area);

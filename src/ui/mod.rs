@@ -1,3 +1,10 @@
+use std::{
+    io::{self, Stdout, Write},
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+};
+use std::{sync::atomic::AtomicBool, time::Instant};
+
 use anyhow::Result;
 use crossterm::{
     event::{self, DisableMouseCapture, Event},
@@ -10,25 +17,20 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     Frame, Terminal,
 };
-use std::{
-    io::{self, Stdout, Write},
-    sync::{atomic::Ordering, Arc},
-    time::Duration,
-};
-use std::{sync::atomic::AtomicBool, time::Instant};
 use tokio::sync::mpsc::Sender;
 use tracing::error;
 
-mod color_match;
-mod draw_blocks;
-mod gui_state;
-
-pub use self::color_match::*;
-pub use self::gui_state::{DeleteButton, GuiState, Status, NavPanel};
 use crate::{
     app_data::AppData, app_error::AppError, docker_data::DockerMessage,
     input_handler::InputMessages,
 };
+
+pub use self::color_match::*;
+pub use self::gui_state::{DeleteButton, GuiState, NavPanel, Status};
+
+mod color_match;
+mod draw_blocks;
+mod gui_state;
 
 pub struct Ui {
     app_data: Arc<Mutex<AppData>>,
@@ -227,26 +229,30 @@ fn draw_frame<B: Backend>(
 
     let whole_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(8), Constraint::Percentage(100), Constraint::Min(3)].as_ref())
+        .constraints(
+            [
+                Constraint::Min(8),
+                Constraint::Percentage(100),
+                Constraint::Min(3),
+            ]
+            .as_ref(),
+        )
         .split(f.size());
 
     // top menu
-    draw_blocks::top_menu(
-        f,
-        whole_layout[0],
-        gui_state,
-    );
+    draw_blocks::top_menu(f, whole_layout[0], gui_state);
 
     let current_nav = gui_state.lock().get_current_nav().clone();
     // content
     match current_nav {
-        NavPanel::Containers => draw_blocks::containers(app_data, whole_layout[1], f, gui_state, &column_widths),
-        NavPanel::Logs  => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
-        NavPanel::Metrics => draw_blocks::chart(f, whole_layout[1], app_data)
+        NavPanel::Containers => {
+            draw_blocks::containers(app_data, whole_layout[1], f, gui_state, &column_widths)
+        }
+        NavPanel::Logs => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
+        NavPanel::Metrics => draw_blocks::chart(f, whole_layout[1], app_data),
     }
 
     // nav - TODO
-
 
     if let Some(id) = delete_confirm {
         app_data.lock().get_container_name_by_id(&id).map_or_else(

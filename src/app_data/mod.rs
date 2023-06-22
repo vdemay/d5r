@@ -1,12 +1,14 @@
-use bollard::models::ContainerSummary;
 use core::fmt;
-use ratatui::widgets::{ListItem, ListState};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-mod container_state;
+use bollard::models::ContainerSummary;
+use ratatui::widgets::{ListItem, ListState};
+
+pub use container_state::*;
 
 use crate::{app_error::AppError, parse_args::CliArgs, ui::log_sanitizer, ENTRY_POINT};
-pub use container_state::*;
+
+mod container_state;
 
 /// Global app_state, stored in an Arc<Mutex>
 #[derive(Debug, Clone)]

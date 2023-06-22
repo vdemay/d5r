@@ -1,5 +1,4 @@
 pub mod log_sanitizer {
-
     use cansi::{v3::categorise_text, Color as CansiColor, Intensity};
     use ratatui::{
         style::{Color, Modifier, Style},

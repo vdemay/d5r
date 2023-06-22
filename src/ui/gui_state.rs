@@ -1,28 +1,28 @@
-use ratatui::layout::{Constraint, Rect};
+use std::borrow::Cow;
 use std::{
     collections::{HashMap, HashSet},
     fmt,
 };
-use std::borrow::Cow;
+
+use ratatui::layout::{Constraint, Rect};
 use uuid::Uuid;
 
-use crate::app_data::{ContainerId};
-
+use crate::app_data::ContainerId;
 
 #[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
 pub enum NavPanel {
     #[default]
     Containers,
-    Logs ,
-    Metrics
+    Logs,
+    Metrics,
 }
 
 impl NavPanel {
     pub fn title(&self) -> Cow<'static, str> {
         match self {
             Self::Containers => "Containers".into(),
-            Self::Logs =>"Logs".into(),
-            Self::Metrics => "Metrics".into()
+            Self::Logs => "Logs".into(),
+            Self::Metrics => "Metrics".into(),
         }
     }
 }
@@ -198,11 +198,11 @@ pub struct GuiState {
     status: HashSet<Status>,
     delete_container: Option<ContainerId>,
     pub info_box_text: Option<String>,
-    pub nav: Vec<NavPanel>
+    pub nav: Vec<NavPanel>,
 }
 impl GuiState {
     /// nav
-    pub fn append_nav(&mut self, nav_panel : NavPanel){
+    pub fn append_nav(&mut self, nav_panel: NavPanel) {
         self.nav.insert(self.nav.len(), nav_panel)
     }
 
@@ -210,7 +210,7 @@ impl GuiState {
         if self.nav.len() > 1 {
             self.nav.remove(self.nav.len() - 1);
         }
-        return
+        return;
     }
 
     pub fn get_current_nav(&mut self) -> &NavPanel {
@@ -219,7 +219,6 @@ impl GuiState {
         }
         self.nav.last().unwrap()
     }
-
 
     /// Check if a given Rect (a clicked area of 1x1), interacts with any known delete button
     pub fn button_intersect(&mut self, rect: Rect) -> Option<DeleteButton> {
@@ -230,7 +229,6 @@ impl GuiState {
             .get(0)
             .map(|data| *data.0)
     }
-
 
     /// Check if an ContainerId is set in the delete_container field
     pub fn get_delete_container(&self) -> Option<ContainerId> {
@@ -267,7 +265,6 @@ impl GuiState {
     pub fn status_push(&mut self, status: Status) {
         self.status.insert(status);
     }
-
 
     /// Insert a new loading_uuid into HashSet, and advance the animation by one frame
     pub fn next_loading(&mut self, uuid: Uuid) {
