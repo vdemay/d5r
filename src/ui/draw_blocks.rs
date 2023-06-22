@@ -306,7 +306,13 @@ fn make_chart<'a, T: Stats + Display>(
         )
 }
 
-pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mutex<GuiState>>) {
+pub fn top_menu<B: Backend>(
+    f: &mut Frame<'_, B>,
+    area: Rect,
+    loading_icon: &str,
+    gui_state: &Arc<Mutex<GuiState>>,
+    app_data: &Arc<Mutex<AppData>>,
+) {
     let split = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
@@ -319,8 +325,13 @@ pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mu
         )
         .split(area);
 
+    let loading = gui_state.lock().is_loading();
+    let mut loading_text: String = String::from("");
+    if loading {
+        loading_text = format!("{loading_icon:>2} Loading")
+    };
     // left part
-    let mut left_lines = vec![
+    let left_lines = vec![
         Line::from(""),
         Line::from(Span::styled(
             "Hackathon",
@@ -329,6 +340,10 @@ pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mu
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled("June 2023", Style::default().fg(Color::White))),
+        Line::from(Span::styled(
+            loading_text,
+            Style::default().fg(Color::White),
+        )),
     ];
     let left = Paragraph::new(left_lines)
         .style(Style::default().fg(Color::White))
@@ -356,7 +371,8 @@ pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mu
 
     // --- column 1
     let mut actions_lines_0 = vec![Line::from("")];
-    let actions = gui_state.lock().get_current_nav().actions_0();
+    let current_nav = gui_state.lock().get_current_nav().clone();
+    let actions = current_nav.actions_0(gui_state, app_data);
     actions.iter().for_each(|a| {
         actions_lines_0.insert(
             actions_lines_0.len(),
@@ -375,7 +391,8 @@ pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mu
 
     // --- column 2
     let mut actions_lines_1 = vec![Line::from("")];
-    let actions = gui_state.lock().get_current_nav().actions_1();
+    let current_nav = gui_state.lock().get_current_nav().clone();
+    let actions = current_nav.actions_1(gui_state, app_data);
     actions.iter().for_each(|a| {
         actions_lines_1.insert(
             actions_lines_1.len(),
@@ -394,7 +411,8 @@ pub fn top_menu<B: Backend>(f: &mut Frame<'_, B>, area: Rect, gui_state: &Arc<Mu
 
     // --- columns 3
     let mut actions_lines_2 = vec![Line::from("")];
-    let actions = gui_state.lock().get_current_nav().actions_2();
+    let current_nav = gui_state.lock().get_current_nav().clone();
+    let actions = current_nav.actions_2(gui_state, app_data);
     actions.iter().for_each(|a| {
         actions_lines_2.insert(
             actions_lines_2.len(),

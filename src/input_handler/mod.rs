@@ -165,7 +165,7 @@ impl InputHandler {
             }
         } else {
             let current_panel = self.gui_state.lock().get_current_nav().clone();
-            let current_actions = current_panel.all_actions();
+            let current_actions = current_panel.all_actions(&self.gui_state, &self.app_data);
             match key_code {
                 KeyCode::Char('h' | 'H') => self.gui_state.lock().status_push(Status::Help),
 
@@ -198,18 +198,21 @@ impl InputHandler {
                     }
                 }
 
-                kc => current_actions
-                    .iter()
-                    .filter(|a| a.key() == kc)
-                    .for_each(|a| match a {
-                        Action::NavAction(_, _, next) => {
-                            self.gui_state.lock().append_nav(next.clone())
-                        }
-                        Action::BackAction(_, _) => self.gui_state.lock().back_in_nav(),
-                        Action::RunAction(_, _) => (),
-                        _ => (),
-                    }),
+                kc => {
+                    let maybe_action = current_actions.iter().find(|a| a.key() == kc);
 
+                    if let Some(action) = maybe_action {
+                        match action {
+                            Action::NavAction(_, _, next) => {
+                                self.gui_state.lock().append_nav(next.clone())
+                            }
+                            Action::BackAction(_, _) => self.gui_state.lock().back_in_nav(),
+                            Action::DockerMessageAction(_, _, docker_message) => {
+                                self.docker_sender.send(docker_message.clone()).await.ok();
+                            }
+                        }
+                    }
+                }
                 _ => (),
             }
         }

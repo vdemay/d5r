@@ -241,7 +241,7 @@ fn draw_frame<B: Backend>(
         .split(f.size());
 
     // top menu
-    draw_blocks::top_menu(f, whole_layout[0], gui_state);
+    draw_blocks::top_menu(f, whole_layout[0], &loading_icon, gui_state, app_data);
 
     let current_nav = gui_state.lock().get_current_nav().clone();
     // content

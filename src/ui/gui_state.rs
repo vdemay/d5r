@@ -253,8 +253,8 @@ impl GuiState {
 
     /// Insert a new loading_uuid into HashSet, and advance the animation by one frame
     pub fn next_loading(&mut self, uuid: Uuid) {
-        self.loading_icon = self.loading_icon.next();
         self.is_loading.insert(uuid);
+        self.loading_icon = self.loading_icon.next();
     }
 
     /// If is_loading has any entries, return the current loading_icon, else an empty string, which needs to take up the same space, hence ' '
@@ -264,6 +264,10 @@ impl GuiState {
         } else {
             self.loading_icon.to_string()
         }
+    }
+
+    pub fn is_loading(&mut self) -> bool {
+        return !self.is_loading.is_empty();
     }
 
     /// Remove a loading_uuid from the is_loading HashSet
