@@ -2,6 +2,7 @@ use crate::{app_error::AppError, parse_args::CliArgs};
 
 pub mod container_data;
 pub mod container_state;
+pub mod statefull_list;
 
 /// Global app_state, stored in an Arc<Mutex>
 #[derive(Debug, Clone)]

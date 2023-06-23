@@ -1,14 +1,12 @@
 use std::fmt;
 
-use crate::app_data::container_state::DockerControls;
-
 /// app errors to set in global state
 #[allow(unused)]
 #[derive(Debug, Clone, Copy)]
 pub enum AppError {
-    DockerCommand(DockerControls),
     DockerConnect,
     DockerInterval,
+    Docker,
     InputPoll,
     MouseCapture(bool),
     Terminal,
@@ -18,7 +16,7 @@ pub enum AppError {
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::DockerCommand(s) => write!(f, "Unable to {s} container"),
+            Self::Docker => write!(f, "Docker error"),
             Self::DockerConnect => write!(f, "Unable to access docker daemon"),
             Self::DockerInterval => write!(f, "Docker update interval needs to be greater than 0"),
             Self::InputPoll => write!(f, "Unable to poll user input"),

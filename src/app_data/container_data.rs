@@ -5,10 +5,11 @@ use bollard::models::ContainerSummary;
 use ratatui::widgets::{ListItem, ListState};
 
 use crate::app_data::container_state::{
-    ByteStats, Columns, ContainerId, ContainerItem, CpuStats, CpuTuple, DockerControls, LogsTz,
-    MemTuple, State, StatefulList,
+    ByteStats, Columns, ContainerId, ContainerItem, CpuStats, CpuTuple, LogsTz, MemTuple, State,
 };
 use crate::{parse_args::CliArgs, ui::log_sanitizer, ENTRY_POINT};
+
+use super::statefull_list::StatefulList;
 
 /// Global app_state, stored in an Arc<Mutex>
 #[derive(Debug, Clone)]
@@ -561,14 +562,6 @@ impl ContainerData {
                         item.status = status;
                     };
                     if item.state != state {
-                        item.docker_controls.items = DockerControls::gen_vec(state);
-                        // Update the list state, needs to be None if the gen_vec returns an empty vec
-                        match state {
-                            State::Removing | State::Restarting | State::Unknown => {
-                                item.docker_controls.state.select(None);
-                            }
-                            _ => item.docker_controls.start(),
-                        };
                         item.state = state;
                     };
                     if item.image != image {

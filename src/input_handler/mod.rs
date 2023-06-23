@@ -116,7 +116,7 @@ impl InputHandler {
         let id = self.gui_state.lock().get_delete_container();
         if let Some(id) = id {
             self.docker_sender
-                .send(DockerMessage::Delete(id))
+                .send(DockerMessage::DeleteContainer(id))
                 .await
                 .ok();
         }

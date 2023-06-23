@@ -10,6 +10,7 @@ use ratatui::{
 };
 
 use crate::app_data::container_data::Header;
+use crate::app_data::statefull_list::StatefulList;
 
 const ONE_KB: f64 = 1000.0;
 const ONE_MB: f64 = ONE_KB * 1000.0;
@@ -51,72 +52,6 @@ impl Ord for ContainerId {
 impl PartialOrd for ContainerId {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct StatefulList<T> {
-    pub state: ListState,
-    pub items: Vec<T>,
-}
-
-impl<T> StatefulList<T> {
-    pub fn new(items: Vec<T>) -> Self {
-        Self {
-            state: ListState::default(),
-            items,
-        }
-    }
-
-    pub fn end(&mut self) {
-        let len = self.items.len();
-        if len > 0 {
-            self.state.select(Some(self.items.len() - 1));
-        }
-    }
-
-    pub fn start(&mut self) {
-        self.state.select(Some(0));
-    }
-
-    pub fn next(&mut self) {
-        if !self.items.is_empty() {
-            let i = match self.state.selected() {
-                Some(i) => {
-                    if i < self.items.len() - 1 {
-                        i + 1
-                    } else {
-                        i
-                    }
-                }
-                None => 0,
-            };
-            self.state.select(Some(i));
-        }
-    }
-
-    pub fn previous(&mut self) {
-        if !self.items.is_empty() {
-            let i = self
-                .state
-                .selected()
-                .map_or(0, |i| if i == 0 { 0 } else { i - 1 });
-            self.state.select(Some(i));
-        }
-    }
-
-    /// Return the current status of the select list, e.g. 2/5,
-    pub fn get_state_title(&self) -> String {
-        if self.items.is_empty() {
-            String::new()
-        } else {
-            let len = self.items.len();
-            let c = self
-                .state
-                .selected()
-                .map_or(0, |value| if len > 0 { value + 1 } else { value });
-            format!("{c}/{}", self.items.len())
-        }
     }
 }
 
@@ -194,55 +129,6 @@ impl fmt::Display for State {
             Self::Restarting => "↻ restarting",
             Self::Running => "✓ running",
             Self::Unknown => "? unknown",
-        };
-        write!(f, "{disp}")
-    }
-}
-
-/// Items for the container control list
-#[derive(Debug, Clone, Copy)]
-pub enum DockerControls {
-    Pause,
-    Restart,
-    Start,
-    Stop,
-    Unpause,
-    Delete,
-}
-
-impl DockerControls {
-    pub const fn get_color(self) -> Color {
-        match self {
-            Self::Pause => Color::Yellow,
-            Self::Restart => Color::Magenta,
-            Self::Start => Color::Green,
-            Self::Stop => Color::Red,
-            Self::Delete => Color::Gray,
-            Self::Unpause => Color::Blue,
-        }
-    }
-
-    /// Docker commands available depending on the containers state
-    pub fn gen_vec(state: State) -> Vec<Self> {
-        match state {
-            State::Dead | State::Exited => vec![Self::Start, Self::Restart, Self::Delete],
-            State::Paused => vec![Self::Unpause, Self::Stop, Self::Delete],
-            State::Restarting => vec![Self::Stop, Self::Delete],
-            State::Running => vec![Self::Pause, Self::Restart, Self::Stop, Self::Delete],
-            _ => vec![Self::Delete],
-        }
-    }
-}
-
-impl fmt::Display for DockerControls {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disp = match self {
-            Self::Pause => "pause",
-            Self::Delete => "delete",
-            Self::Restart => "restart",
-            Self::Start => "start",
-            Self::Stop => "stop",
-            Self::Unpause => "unpause",
         };
         write!(f, "{disp}")
     }
@@ -445,7 +331,6 @@ impl Logs {
 pub struct ContainerItem {
     pub created: u64,
     pub cpu_stats: VecDeque<CpuStats>,
-    pub docker_controls: StatefulList<DockerControls>,
     pub id: ContainerId,
     pub image: String,
     pub last_updated: u64,
@@ -472,12 +357,9 @@ impl ContainerItem {
         state: State,
         status: String,
     ) -> Self {
-        let mut docker_controls = StatefulList::new(DockerControls::gen_vec(state));
-        docker_controls.start();
         Self {
             created,
             cpu_stats: VecDeque::with_capacity(60),
-            docker_controls,
             id,
             image,
             is_oxker,

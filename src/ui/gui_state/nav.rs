@@ -96,7 +96,7 @@ impl NavPanel {
                             String::from("(i) Info"),
                             KeyCode::Char('i'),
                             NavPanel::Info,
-                            DockerMessage::Infos(selected_container.id.clone()),
+                            DockerMessage::InfosContainer(selected_container.id.clone()),
                         ),
                     ]
                 } else {
@@ -135,39 +135,39 @@ impl NavPanel {
                                 Action::DockerMessageAction(
                                     String::from("(r) Restart"),
                                     KeyCode::Char('r'),
-                                    DockerMessage::Restart(selected_container.id.clone()),
+                                    DockerMessage::RestartContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
                                     String::from("(S) Stop"),
                                     KeyCode::Char('S'),
-                                    DockerMessage::Stop(selected_container.id.clone()),
+                                    DockerMessage::StopContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
                                     String::from("(p) Pause"),
                                     KeyCode::Char('p'),
-                                    DockerMessage::Pause(selected_container.id.clone()),
+                                    DockerMessage::PauseContainer(selected_container.id.clone()),
                                 ),
                             ],
                             State::Dead | State::Exited => vec![Action::DockerMessageAction(
                                 String::from("(s) Start"),
                                 KeyCode::Char('s'),
-                                DockerMessage::Start(selected_container.id.clone()),
+                                DockerMessage::StartContainer(selected_container.id.clone()),
                             )],
                             State::Paused => vec![
                                 Action::DockerMessageAction(
                                     String::from("(u) Unpause"),
                                     KeyCode::Char('u'),
-                                    DockerMessage::Unpause(selected_container.id.clone()),
+                                    DockerMessage::UnpauseContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
                                     String::from("(S) Stop"),
                                     KeyCode::Char('S'),
-                                    DockerMessage::Stop(selected_container.id.clone()),
+                                    DockerMessage::StopContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
                                     String::from("(p) Pause"),
                                     KeyCode::Char('p'),
-                                    DockerMessage::Pause(selected_container.id.clone()),
+                                    DockerMessage::PauseContainer(selected_container.id.clone()),
                                 ),
                             ],
                             State::Restarting | State::Removing | State::Unknown => vec![],
