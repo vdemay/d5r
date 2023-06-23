@@ -94,6 +94,21 @@ impl DockerData {
         cpu_percentage
     }
 
+    async fn update_container_info(
+        app_data: Arc<Mutex<AppData>>,
+        docker: Arc<Docker>,
+        id: ContainerId,
+    ) {
+        let info = docker
+            .inspect_container(id.get(), None)
+            .await
+            .unwrap_or_default();
+
+        let y_info = serde_yaml::to_string(&info).unwrap_or_default();
+
+        app_data.lock().container_data.update_infos(&id, &y_info)
+    }
+
     /// Get a single docker stat in order to update mem and cpu usage
     /// don't take &self, so that can tokio::spawn into it's own thread
     /// remove if from spawns hashmap when complete
@@ -211,7 +226,10 @@ impl DockerData {
             })
             .collect::<Vec<ContainerSummary>>();
 
-        self.app_data.lock().container_data.update_containers(&mut output);
+        self.app_data
+            .lock()
+            .container_data
+            .update_containers(&mut output);
 
         // Just get the containers that are currently running, or being restarted, no point updating info on paused or dead containers
         output
@@ -439,6 +457,16 @@ impl DockerData {
                         .for_each(tokio::task::JoinHandle::abort);
                     self.is_running
                         .store(false, std::sync::atomic::Ordering::SeqCst);
+                }
+                DockerMessage::Infos(id) => {
+                    tokio::spawn(async move {
+                        let loading_spin = Self::loading_spin(uuid, &gui_state).await;
+                        Self::update_container_info(app_data, docker, id).await;
+                        Self::stop_loading_spin(&gui_state, &loading_spin, uuid);
+                        return;
+                    });
+
+                    self.update_everything().await;
                 }
             }
         }

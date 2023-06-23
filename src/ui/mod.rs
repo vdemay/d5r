@@ -251,6 +251,7 @@ fn draw_frame<B: Backend>(
         }
         NavPanel::Logs => draw_blocks::logs(app_data, whole_layout[1], f, gui_state, &loading_icon),
         NavPanel::Metrics => draw_blocks::chart(f, whole_layout[1], app_data),
+        NavPanel::Info => draw_blocks::infos(app_data, whole_layout[1], f, gui_state),
     }
 
     // nav - TODO

@@ -235,13 +235,6 @@ impl ContainerData {
         &mut self.containers.state
     }
 
-    /// Change selected choice of docker commands of selected container
-    pub fn docker_command_end(&mut self) {
-        if let Some(i) = self.get_mut_selected_container() {
-            i.docker_controls.end();
-        }
-    }
-
     /// Logs related methods
 
     /// Get the title for log panel for selected container, will be either
@@ -283,6 +276,34 @@ impl ContainerData {
     }
 
     /// select first selected log line
+    pub fn info_start(&mut self) {
+        if let Some(i) = self.get_mut_selected_container() {
+            i.info.start();
+        }
+    }
+
+    /// select next selected log line
+    pub fn info_next(&mut self) {
+        if let Some(i) = self.get_mut_selected_container() {
+            i.info.next();
+        }
+    }
+
+    /// select previous selected log line
+    pub fn info_previous(&mut self) {
+        if let Some(i) = self.get_mut_selected_container() {
+            i.info.previous();
+        }
+    }
+
+    /// select last selected log line
+    pub fn info_end(&mut self) {
+        if let Some(i) = self.get_mut_selected_container() {
+            i.info.end();
+        }
+    }
+
+    /// select first selected log line
     pub fn log_start(&mut self) {
         if let Some(i) = self.get_mut_selected_container() {
             i.logs.start();
@@ -318,6 +339,14 @@ impl ContainerData {
             .selected()
             .and_then(|i| self.containers.items.get_mut(i))
             .map(|i| i.logs.state())
+    }
+
+    pub fn get_info_state(&mut self) -> Option<&mut ListState> {
+        self.containers
+            .state
+            .selected()
+            .and_then(|i| self.containers.items.get_mut(i))
+            .map(|i| &mut i.info.state)
     }
 
     /// Check if the selected container is a dockerised version of oxker
@@ -435,6 +464,24 @@ impl ContainerData {
         }
         // need to benchmark this?
         self.sort_containers();
+    }
+
+    pub fn update_infos(&mut self, id: &ContainerId, info: &String) {
+        if let Some(container) = self.get_container_by_id(id) {
+            let mut out: Vec<ListItem<'_>> = vec![];
+            info.lines()
+                .for_each(|l| out.insert(out.len(), ListItem::new(l.to_string())));
+
+            container.info = StatefulList::new(out)
+        }
+    }
+
+    pub fn get_infos(&mut self) -> Vec<ListItem<'static>> {
+        self.containers
+            .state
+            .selected()
+            .and_then(|i| self.containers.items.get_mut(i))
+            .map_or(vec![], |i| i.info.items.clone())
     }
 
     /// Update, or insert, containers

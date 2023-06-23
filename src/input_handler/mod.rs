@@ -175,6 +175,7 @@ impl InputHandler {
                         NavPanel::Containers => locked_data.container_data.containers_start(),
                         NavPanel::Logs => locked_data.container_data.log_start(),
                         NavPanel::Metrics => {}
+                        NavPanel::Info => locked_data.container_data.info_start(),
                     }
                 }
                 KeyCode::End => {
@@ -183,6 +184,7 @@ impl InputHandler {
                         NavPanel::Containers => locked_data.container_data.containers_end(),
                         NavPanel::Logs => locked_data.container_data.log_end(),
                         NavPanel::Metrics => {}
+                        NavPanel::Info => locked_data.container_data.info_end(),
                     }
                 }
                 KeyCode::Up => self.previous(),
@@ -208,6 +210,10 @@ impl InputHandler {
                             }
                             Action::BackAction(_, _) => self.gui_state.lock().back_in_nav(),
                             Action::DockerMessageAction(_, _, docker_message) => {
+                                self.docker_sender.send(docker_message.clone()).await.ok();
+                            }
+                            Action::NavAndDockerMessageAction(_, _, next, docker_message) => {
+                                self.gui_state.lock().append_nav(next.clone());
                                 self.docker_sender.send(docker_message.clone()).await.ok();
                             }
                         }
@@ -252,6 +258,7 @@ impl InputHandler {
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.container_data.containers_next(),
             NavPanel::Logs => locked_data.container_data.log_next(),
+            NavPanel::Info => locked_data.container_data.info_next(),
             NavPanel::Metrics => {}
         };
     }
@@ -262,6 +269,7 @@ impl InputHandler {
         match self.gui_state.lock().get_current_nav() {
             NavPanel::Containers => locked_data.container_data.containers_previous(),
             NavPanel::Logs => locked_data.container_data.log_previous(),
+            NavPanel::Info => locked_data.container_data.info_previous(),
             NavPanel::Metrics => {}
         }
     }

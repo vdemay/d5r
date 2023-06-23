@@ -70,7 +70,15 @@ fn generate_block<'a>(
                 app_data.lock().container_data.get_log_title()
             )
         }
-        _ => String::new(),
+        _ => format!(
+            "{} ({})",
+            nav_panel.title(),
+            app_data
+                .lock()
+                .container_data
+                .get_selected_container_name()
+                .get_or_insert("".to_string())
+        ),
     };
     if !title.is_empty() {
         title = format!(" {title} ");
@@ -187,6 +195,26 @@ pub fn containers<B: Backend>(
             area,
             app_data.lock().container_data.get_container_state(),
         );
+    }
+}
+
+pub fn infos<B: Backend>(
+    app_data: &Arc<Mutex<AppData>>,
+    area: Rect,
+    f: &mut Frame<'_, B>,
+    gui_state: &Arc<Mutex<GuiState>>,
+) {
+    let block = || generate_block(app_data, area, gui_state);
+
+    let infos = app_data.lock().container_data.get_infos();
+
+    let items = List::new(infos)
+        .block(block())
+        .highlight_symbol(ARROW)
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+    if let Some(i) = app_data.lock().container_data.get_info_state() {
+        f.render_stateful_widget(items, area, i);
     }
 }
 

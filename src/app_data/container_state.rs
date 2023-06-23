@@ -458,6 +458,7 @@ pub struct ContainerItem {
     pub status: String,
     pub tx: ByteStats,
     pub is_oxker: bool,
+    pub info: StatefulList<ListItem<'static>>,
 }
 
 impl ContainerItem {
@@ -489,6 +490,7 @@ impl ContainerItem {
             state,
             status,
             tx: ByteStats::default(),
+            info: StatefulList::new(vec![]),
         }
     }
 

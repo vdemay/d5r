@@ -1,7 +1,10 @@
 use std::{borrow::Cow, sync::Arc};
 
 use crate::{
-    app_data::{container_state::State, AppData},
+    app_data::{
+        container_state::{ContainerId, State},
+        AppData,
+    },
     docker_data::DockerMessage,
 };
 use crossterm::event::KeyCode;
@@ -16,12 +19,14 @@ pub enum NavPanel {
     Containers,
     Logs,
     Metrics,
+    Info,
 }
 
 pub enum Action {
     NavAction(String, KeyCode, NavPanel),
     BackAction(String, KeyCode),
     DockerMessageAction(String, KeyCode, DockerMessage),
+    NavAndDockerMessageAction(String, KeyCode, NavPanel, DockerMessage),
 }
 
 impl Action {
@@ -30,6 +35,7 @@ impl Action {
             Self::NavAction(label, _, _) => label,
             Self::BackAction(label, _) => label,
             Self::DockerMessageAction(label, _, _) => label,
+            Self::NavAndDockerMessageAction(label, _, _, _) => label,
         }
     }
 
@@ -38,6 +44,7 @@ impl Action {
             Self::NavAction(_, k, _) => *k,
             Self::BackAction(_, k) => *k,
             Self::DockerMessageAction(_, k, _) => *k,
+            Self::NavAndDockerMessageAction(_, k, _, _) => *k,
         }
     }
 }
@@ -48,6 +55,7 @@ impl NavPanel {
             Self::Containers => "Containers".into(),
             Self::Logs => "Logs".into(),
             Self::Metrics => "Metrics".into(),
+            Self::Info => "Infos".into(),
         }
     }
 
@@ -70,19 +78,38 @@ impl NavPanel {
     ) -> Vec<Action> {
         match self {
             Self::Containers => {
-                vec![
-                    Action::NavAction(String::from("(l) Logs"), KeyCode::Char('l'), NavPanel::Logs),
-                    Action::NavAction(
-                        String::from("(m) Metrics"),
-                        KeyCode::Char('m'),
-                        NavPanel::Metrics,
-                    ),
-                ]
+                let _app_data = app_data.lock();
+                let maybe_selected_container = _app_data.container_data.get_selected_container();
+                if let Some(selected_container) = maybe_selected_container {
+                    vec![
+                        Action::NavAction(
+                            String::from("(l) Logs"),
+                            KeyCode::Char('l'),
+                            NavPanel::Logs,
+                        ),
+                        Action::NavAction(
+                            String::from("(m) Metrics"),
+                            KeyCode::Char('m'),
+                            NavPanel::Metrics,
+                        ),
+                        Action::NavAndDockerMessageAction(
+                            String::from("(i) Info"),
+                            KeyCode::Char('i'),
+                            NavPanel::Info,
+                            DockerMessage::Infos(selected_container.id.clone()),
+                        ),
+                    ]
+                } else {
+                    vec![]
+                }
             }
             Self::Logs => {
                 vec![Action::BackAction(String::from("(Esc) back"), KeyCode::Esc)]
             }
             Self::Metrics => {
+                vec![Action::BackAction(String::from("(Esc) back"), KeyCode::Esc)]
+            }
+            Self::Info => {
                 vec![Action::BackAction(String::from("(Esc) back"), KeyCode::Esc)]
             }
         }
@@ -156,6 +183,9 @@ impl NavPanel {
             Self::Metrics => {
                 vec![]
             }
+            Self::Info => {
+                vec![]
+            }
         }
     }
     pub fn actions_2(
@@ -171,6 +201,9 @@ impl NavPanel {
                 vec![]
             }
             Self::Metrics => {
+                vec![]
+            }
+            Self::Info => {
                 vec![]
             }
         }
