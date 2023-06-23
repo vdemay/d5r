@@ -11,7 +11,7 @@ use crossterm::event::KeyCode;
 
 use parking_lot::Mutex;
 
-use super::GuiState;
+use super::{GuiState, Status};
 
 #[derive(Debug, Default, Clone, Eq, Hash, PartialEq)]
 pub enum NavPanel {
@@ -81,24 +81,44 @@ impl NavPanel {
                 let _app_data = app_data.lock();
                 let maybe_selected_container = _app_data.container_data.get_selected_container();
                 if let Some(selected_container) = maybe_selected_container {
-                    vec![
-                        Action::NavAction(
-                            String::from("(l) Logs"),
-                            KeyCode::Char('l'),
-                            NavPanel::Logs,
-                        ),
-                        Action::NavAction(
-                            String::from("(m) Metrics"),
-                            KeyCode::Char('m'),
-                            NavPanel::Metrics,
-                        ),
-                        Action::NavAndDockerMessageAction(
-                            String::from("(i) Info"),
-                            KeyCode::Char('i'),
-                            NavPanel::Info,
-                            DockerMessage::InfosContainer(selected_container.id.clone()),
-                        ),
-                    ]
+                    match selected_container.state {
+                        State::Running => vec![
+                            Action::NavAction(
+                                String::from("(l) Logs"),
+                                KeyCode::Char('l'),
+                                NavPanel::Logs,
+                            ),
+                            Action::NavAndDockerMessageAction(
+                                String::from("(i) Info"),
+                                KeyCode::Char('i'),
+                                NavPanel::Info,
+                                DockerMessage::InfosContainer(selected_container.id.clone()),
+                            ),
+                            Action::NavAction(
+                                String::from("(m) Metrics"),
+                                KeyCode::Char('m'),
+                                NavPanel::Metrics,
+                            ),
+                            Action::DockerMessageAction(
+                                String::from("(s) Shell"),
+                                KeyCode::Char('s'),
+                                DockerMessage::ShellContainer(selected_container.id.clone()),
+                            ),
+                        ],
+                        _ => vec![
+                            Action::NavAction(
+                                String::from("(l) Logs"),
+                                KeyCode::Char('l'),
+                                NavPanel::Logs,
+                            ),
+                            Action::NavAndDockerMessageAction(
+                                String::from("(i) Info"),
+                                KeyCode::Char('i'),
+                                NavPanel::Info,
+                                DockerMessage::InfosContainer(selected_container.id.clone()),
+                            ),
+                        ],
+                    }
                 } else {
                     vec![]
                 }
@@ -138,8 +158,8 @@ impl NavPanel {
                                     DockerMessage::RestartContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
-                                    String::from("(S) Stop"),
-                                    KeyCode::Char('S'),
+                                    String::from("(x) Stop"),
+                                    KeyCode::Char('x'),
                                     DockerMessage::StopContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
@@ -149,8 +169,8 @@ impl NavPanel {
                                 ),
                             ],
                             State::Dead | State::Exited => vec![Action::DockerMessageAction(
-                                String::from("(s) Start"),
-                                KeyCode::Char('s'),
+                                String::from("(r) Run"),
+                                KeyCode::Char('r'),
                                 DockerMessage::StartContainer(selected_container.id.clone()),
                             )],
                             State::Paused => vec![
@@ -160,14 +180,9 @@ impl NavPanel {
                                     DockerMessage::UnpauseContainer(selected_container.id.clone()),
                                 ),
                                 Action::DockerMessageAction(
-                                    String::from("(S) Stop"),
-                                    KeyCode::Char('S'),
+                                    String::from("(x) Stop"),
+                                    KeyCode::Char('x'),
                                     DockerMessage::StopContainer(selected_container.id.clone()),
-                                ),
-                                Action::DockerMessageAction(
-                                    String::from("(p) Pause"),
-                                    KeyCode::Char('p'),
-                                    DockerMessage::PauseContainer(selected_container.id.clone()),
                                 ),
                             ],
                             State::Restarting | State::Removing | State::Unknown => vec![],

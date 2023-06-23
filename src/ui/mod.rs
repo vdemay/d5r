@@ -16,6 +16,7 @@ use parking_lot::Mutex;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
+    widgets::{Block, Borders},
     Frame, Terminal,
 };
 use tokio::sync::mpsc::Sender;
@@ -145,39 +146,57 @@ impl Ui {
         let update_duration =
             std::time::Duration::from_millis(u64::from(self.app_data.lock().args.docker_interval));
 
+        let mut was_in_sheel = false;
+
         while self.is_running.load(Ordering::SeqCst) {
-            if self
-                .terminal
-                .draw(|frame| draw_frame(frame, &self.app_data, &self.gui_state))
-                .is_err()
-            {
-                return Err(AppError::Terminal);
-            }
-            if crossterm::event::poll(self.input_poll_rate).unwrap_or(false) {
-                if let Ok(event) = event::read() {
-                    if let Event::Key(key) = event {
-                        self.sender
-                            .send(InputMessages::ButtonPress((key.code, key.modifiers)))
-                            .await
-                            .ok();
-                    } else if let Event::Mouse(m) = event {
-                        match m.kind {
-                            event::MouseEventKind::Down(_)
-                            | event::MouseEventKind::ScrollDown
-                            | event::MouseEventKind::ScrollUp => {
-                                self.sender.send(InputMessages::MouseEvent(m)).await.ok();
+            let status_shell = self.gui_state.lock().status_contains(&[Status::Shell]);
+
+            if status_shell {
+                if self.terminal.draw(|frame| draw_empty(frame)).is_err() {
+                    return Err(AppError::Terminal);
+                }
+                if !was_in_sheel {
+                    self.terminal.set_cursor(0, 0);
+                }
+                was_in_sheel = true;
+            } else {
+                if was_in_sheel {
+                    self.terminal.clear();
+                    was_in_sheel = false;
+                }
+                if self
+                    .terminal
+                    .draw(|frame| draw_frame(frame, &self.app_data, &self.gui_state))
+                    .is_err()
+                {
+                    return Err(AppError::Terminal);
+                }
+                if crossterm::event::poll(self.input_poll_rate).unwrap_or(false) {
+                    if let Ok(event) = event::read() {
+                        if let Event::Key(key) = event {
+                            self.sender
+                                .send(InputMessages::ButtonPress((key.code, key.modifiers)))
+                                .await
+                                .ok();
+                        } else if let Event::Mouse(m) = event {
+                            match m.kind {
+                                event::MouseEventKind::Down(_)
+                                | event::MouseEventKind::ScrollDown
+                                | event::MouseEventKind::ScrollUp => {
+                                    self.sender.send(InputMessages::MouseEvent(m)).await.ok();
+                                }
+                                _ => (),
                             }
-                            _ => (),
+                        } else if let Event::Resize(_, _) = event {
+                            self.terminal.autoresize().ok();
                         }
-                    } else if let Event::Resize(_, _) = event {
-                        self.terminal.autoresize().ok();
                     }
                 }
-            }
 
-            if self.now.elapsed() >= update_duration {
-                self.docker_sx.send(DockerMessage::Update).await.ok();
-                self.now = Instant::now();
+                if self.now.elapsed() >= update_duration {
+                    self.docker_sx.send(DockerMessage::Update).await.ok();
+                    self.now = Instant::now();
+                }
             }
         }
         Ok(())
@@ -189,6 +208,7 @@ impl Ui {
             .gui_state
             .lock()
             .status_contains(&[Status::DockerConnect]);
+
         if status_dockerconnect {
             self.err_loop()?;
         } else {
@@ -197,6 +217,16 @@ impl Ui {
         self.nullify_event_read();
         Ok(())
     }
+}
+
+fn draw_empty<B: Backend>(f: &mut Frame<'_, B>) {
+    let whole_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(100)].as_ref())
+        .split(f.size());
+
+    let block = Block::default().borders(Borders::NONE);
+    f.render_widget(block, whole_layout[0]);
 }
 
 /// Draw the main ui to a frame of the terminal

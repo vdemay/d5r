@@ -172,6 +172,7 @@ pub enum Status {
     DockerConnect,
     DeleteConfirm,
     Error,
+    Shell,
 }
 
 /// Global gui_state, stored in an Arc<Mutex>

@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    process::{Command, Stdio},
     sync::{atomic::AtomicBool, Arc},
 };
 
@@ -452,6 +453,22 @@ impl DockerData {
                         Self::stop_loading_spin(&gui_state, &loading_spin, uuid);
                         return;
                     });
+
+                    self.update_everything().await;
+                }
+                DockerMessage::ShellContainer(id) => {
+                    self.gui_state.lock().status_push(Status::Shell);
+                    Command::new("docker")
+                        .args([
+                            "exec",
+                            "-it",
+                            &id.get().chars().take(8).collect::<String>(),
+                            "/bin/sh",
+                        ])
+                        .stdout(Stdio::inherit())
+                        .stdin(Stdio::inherit())
+                        .output();
+                    self.gui_state.lock().status_del(Status::Shell);
 
                     self.update_everything().await;
                 }

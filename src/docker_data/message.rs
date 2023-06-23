@@ -10,6 +10,7 @@ pub enum DockerMessage {
     StopContainer(ContainerId),
     UnpauseContainer(ContainerId),
     InfosContainer(ContainerId),
+    ShellContainer(ContainerId),
     Quit,
     Update,
 }
